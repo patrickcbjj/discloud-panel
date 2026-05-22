@@ -1,5 +1,12 @@
 # Discloud Panel
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-Windows-blue)
+![Electron](https://img.shields.io/badge/Electron-33-47848F?logo=electron&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
+
 Unofficial desktop panel to monitor and manage your [Discloud](https://discloud.com) apps without opening Discord or the web dashboard.
 
 Everything runs locally. Your token never leaves your machine.

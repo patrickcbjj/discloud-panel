@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Discloud Panel — Social Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: rgb(10, 11, 15);
+    --panel: rgb(18, 20, 26);
+    --panel2: rgb(26, 29, 37);
+    --border: rgb(38, 42, 54);
+    --accent: rgb(34, 197, 94);
+    --accent2: rgb(124, 92, 255);
+    --warn: rgb(245, 158, 11);
+    --text: rgb(234, 236, 240);
+    --mute: rgb(148, 163, 184);
+  }
+  html, body {
+    width: 1280px;
+    height: 640px;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background:
+      radial-gradient(ellipse 800px 400px at 15% 30%, rgba(34, 197, 94, 0.12), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 90% 80%, rgba(124, 92, 255, 0.15), transparent 60%),
+      linear-gradient(135deg, rgb(10, 11, 15), rgb(16, 18, 26));
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 56px;
+    padding: 60px 64px;
+    position: relative;
+  }
+  /* subtle grid pattern */
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+  .left {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    z-index: 1;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    width: fit-content;
+    letter-spacing: 0.02em;
+  }
+  .badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.8);
+  }
+  h1 {
+    font-size: 76px;
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.035em;
+    margin-top: 24px;
+    background: linear-gradient(180deg, #ffffff 0%, #c7d2e0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    font-size: 22px;
+    color: var(--mute);
+    margin-top: 18px;
+    line-height: 1.4;
+    max-width: 540px;
+  }
+  .subtitle strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+  .features {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 20px;
+    margin-top: 32px;
+    max-width: 540px;
+  }
+  .feat {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    color: var(--text);
+  }
+  .feat .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+  .feat:nth-child(2) .dot { background: var(--accent2); }
+  .feat:nth-child(3) .dot { background: var(--warn); }
+  .feat:nth-child(5) .dot { background: var(--accent2); }
+  .feat:nth-child(6) .dot { background: var(--warn); }
+  .footer {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 14px;
+    color: var(--mute);
+  }
+  .stack {
+    display: flex;
+    gap: 8px;
+  }
+  .pill {
+    padding: 4px 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mute);
+  }
+  /* RIGHT: mock UI */
+  .right {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+  }
+  .mock {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(34, 197, 94, 0.04);
+    transform: perspective(1400px) rotateY(-6deg) rotateX(2deg);
+  }
+  .mock-tb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: var(--panel2);
+    border-bottom: 1px solid var(--border);
+  }
+  .mock-tb .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--border);
+  }
+  .mock-tb .title {
+    margin-left: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mute);
+  }
+  .mock-body { padding: 18px; }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .kpi {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .kpi .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--mute);
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  .kpi .val {
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 4px;
+    color: var(--text);
+  }
+  .kpi .val span { font-size: 12px; color: var(--mute); font-weight: 500; margin-left: 2px; }
+  .kpi.green .val { color: var(--accent); }
+  .kpi.purple .val { color: var(--accent2); }
+  .chart {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    height: 180px;
+    position: relative;
+  }
+  .chart .ctitle {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--mute);
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .chart svg {
+    width: 100%;
+    height: 130px;
+    display: block;
+  }
+  .applist {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .app {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .app .avatar {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    flex-shrink: 0;
+  }
+  .app .name { flex: 1; color: var(--text); font-weight: 500; }
+  .app .status {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+  }
+  .app .ram {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    color: var(--mute);
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div>
+      <div class="badge">UNOFFICIAL · COMMUNITY PROJECT</div>
+      <h1>Discloud<br/>Panel</h1>
+      <p class="subtitle">
+        Monitor and manage your Discloud apps from the desktop.
+        <strong>Live metrics, logs, deploys</strong> — all local.
+      </p>
+      <div class="features">
+        <div class="feat"><span class="dot"></span>Live monitoring</div>
+        <div class="feat"><span class="dot"></span>Drag &amp; drop deploy</div>
+        <div class="feat"><span class="dot"></span>Native notifications</div>
+        <div class="feat"><span class="dot"></span>Live logs</div>
+        <div class="feat"><span class="dot"></span>GitHub auto-deploy</div>
+        <div class="feat"><span class="dot"></span>In-container shell</div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="stack">
+        <span class="pill">Electron</span>
+        <span class="pill">React</span>
+        <span class="pill">Vite</span>
+        <span class="pill">Tailwind</span>
+      </div>
+      <span style="margin-left: auto; font-weight: 600; color: var(--text);">github.com/patrickcbjj/discloud-panel</span>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="mock">
+      <div class="mock-tb">
+        <span class="dot" style="background: #ef4444"></span>
+        <span class="dot" style="background: #f59e0b"></span>
+        <span class="dot" style="background: #22c55e"></span>
+        <span class="title">Discloud Panel — Overview</span>
+      </div>
+      <div class="mock-body">
+        <div class="kpis">
+          <div class="kpi green">
+            <div class="label">Apps online</div>
+            <div class="val">8<span>/9</span></div>
+          </div>
+          <div class="kpi">
+            <div class="label">RAM used</div>
+            <div class="val">4.2<span>GB</span></div>
+          </div>
+          <div class="kpi purple">
+            <div class="label">Avg CPU</div>
+            <div class="val">23<span>%</span></div>
+          </div>
+        </div>
+
+        <div class="chart">
+          <div class="ctitle">RAM over time · 24h</div>
+          <svg viewBox="0 0 400 130" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgb(34,197,94)" stop-opacity="0.5"/>
+                <stop offset="100%" stop-color="rgb(34,197,94)" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- grid -->
+            <line x1="0" y1="32" x2="400" y2="32" stroke="rgb(38,42,54)" stroke-dasharray="2,4"/>
+            <line x1="0" y1="65" x2="400" y2="65" stroke="rgb(38,42,54)" stroke-dasharray="2,4"/>
+            <line x1="0" y1="98" x2="400" y2="98" stroke="rgb(38,42,54)" stroke-dasharray="2,4"/>
+            <!-- restart marker -->
+            <line x1="180" y1="0" x2="180" y2="130" stroke="rgb(239,68,68)" stroke-dasharray="3,3" stroke-width="1" opacity="0.6"/>
+            <!-- area -->
+            <path d="M 0 80 L 25 75 L 50 78 L 75 60 L 100 55 L 125 65 L 150 50 L 175 45 L 180 90 L 200 70 L 225 60 L 250 55 L 275 50 L 300 42 L 325 48 L 350 38 L 375 35 L 400 30 L 400 130 L 0 130 Z" fill="url(#g1)"/>
+            <!-- line -->
+            <path d="M 0 80 L 25 75 L 50 78 L 75 60 L 100 55 L 125 65 L 150 50 L 175 45 L 180 90 L 200 70 L 225 60 L 250 55 L 275 50 L 300 42 L 325 48 L 350 38 L 375 35 L 400 30" fill="none" stroke="rgb(34,197,94)" stroke-width="2"/>
+            <!-- secondary cpu line -->
+            <path d="M 0 95 L 50 92 L 100 88 L 150 85 L 200 90 L 250 82 L 300 78 L 350 82 L 400 75" fill="none" stroke="rgb(124,92,255)" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.7"/>
+          </svg>
+        </div>
+
+        <div class="applist">
+          <div class="app">
+            <div class="avatar"></div>
+            <div class="name">main-bot</div>
+            <div class="ram">512 / 1024 MB</div>
+            <div class="status"></div>
+          </div>
+          <div class="app">
+            <div class="avatar" style="background: linear-gradient(135deg, #f59e0b, #ef4444);"></div>
+            <div class="name">api-server</div>
+            <div class="ram">820 / 1024 MB</div>
+            <div class="status"></div>
+          </div>
+          <div class="app">
+            <div class="avatar" style="background: linear-gradient(135deg, #22c55e, #06b6d4);"></div>
+            <div class="name">erp-fluxory</div>
+            <div class="ram">412 / 512 MB</div>
+            <div class="status"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

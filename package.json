@@ -12,6 +12,7 @@
     "build": "vite build",
     "start": "electron .",
     "gen-icon": "node scripts/gen-icon.js",
+    "gen-banner": "electron scripts/gen-banner.js",
     "dist": "npm run build && electron-builder --win"
   },
   "dependencies": {

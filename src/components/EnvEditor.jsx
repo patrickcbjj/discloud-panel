@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Eye, EyeOff, Plus, Trash2, Save, FileText, Code, RefreshCw, CheckCircle2, AlertTriangle, FilePlus } from 'lucide-react';
+import { Eye, EyeOff, Plus, Trash2, Save, FileText, Code, RefreshCw, CheckCircle2, AlertTriangle, FilePlus, ChevronRight, ChevronDown } from 'lucide-react';
 import { useT } from '../i18n.js';
+import { useCollapsed } from '../hooks/useCollapsed.js';
 
 const SECRET_HINT = /(TOKEN|SECRET|KEY|PASSWORD|PASS|PWD|API|AUTH|CREDENTIAL)/i;
 
@@ -50,6 +51,7 @@ export default function EnvEditor({ app, filename = '.env', title }) {
   const [fullPath, setFullPath] = useState(null);
 
   const isTeam = !!app.team;
+  const [collapsed, toggleCollapsed] = useCollapsed(app.id, `env:${filename}`, true);
 
   // Discloud usa workDir do app — descobrimos chamando explorer() sem cPath
   const resolveWorkdir = async () => {
@@ -140,7 +142,7 @@ export default function EnvEditor({ app, filename = '.env', title }) {
     setMode(next);
   };
 
-  if (loading) {
+  if (loading && !collapsed) {
     return (
       <div className="card p-4 text-xs text-mute flex items-center gap-2">
         <RefreshCw size={12} className="animate-spin" /> {t('env.loadingFile', { f: filename })}
@@ -151,33 +153,44 @@ export default function EnvEditor({ app, filename = '.env', title }) {
   return (
     <div className="card p-4 space-y-3">
       <div className="flex items-center gap-2 text-sm font-semibold">
-        <FileText size={14} className="text-mute" />
-        {resolvedTitle}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="flex items-center gap-2 text-left"
+          title={collapsed ? t('common.expand') : t('common.collapse')}
+        >
+          {collapsed ? <ChevronRight size={14} className="text-mute" /> : <ChevronDown size={14} className="text-mute" />}
+          <FileText size={14} className="text-mute" />
+          {resolvedTitle}
+        </button>
         <span className="text-xs text-mute font-normal font-mono">{fullPath || filename}</span>
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            onClick={() => switchMode('table')}
-            className={`px-2 py-1 text-[11px] rounded ${mode === 'table' ? 'bg-accent text-white' : 'bg-panel2 text-mute hover:text-text'}`}
-            title={t('env.tableTip')}
-          >
-            {t('env.tableMode')}
-          </button>
-          <button
-            onClick={() => switchMode('raw')}
-            className={`px-2 py-1 text-[11px] rounded ${mode === 'raw' ? 'bg-accent text-white' : 'bg-panel2 text-mute hover:text-text'}`}
-            title={t('env.textTip')}
-          >
-            <Code size={11} className="inline mr-1" /> {t('env.textMode')}
-          </button>
-          <button
-            onClick={load}
-            className="px-2 py-1 text-[11px] rounded bg-panel2 text-mute hover:text-text"
-            title={t('env.reload')}
-          >
-            <RefreshCw size={11} />
-          </button>
-        </div>
+        {!collapsed && (
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              onClick={() => switchMode('table')}
+              className={`px-2 py-1 text-[11px] rounded ${mode === 'table' ? 'bg-accent text-white' : 'bg-panel2 text-mute hover:text-text'}`}
+              title={t('env.tableTip')}
+            >
+              {t('env.tableMode')}
+            </button>
+            <button
+              onClick={() => switchMode('raw')}
+              className={`px-2 py-1 text-[11px] rounded ${mode === 'raw' ? 'bg-accent text-white' : 'bg-panel2 text-mute hover:text-text'}`}
+              title={t('env.textTip')}
+            >
+              <Code size={11} className="inline mr-1" /> {t('env.textMode')}
+            </button>
+            <button
+              onClick={load}
+              className="px-2 py-1 text-[11px] rounded bg-panel2 text-mute hover:text-text"
+              title={t('env.reload')}
+            >
+              <RefreshCw size={11} />
+            </button>
+          </div>
+        )}
       </div>
+      {!collapsed && (<>
 
       {err && (
         <div className="text-xs text-danger flex items-center gap-1">
@@ -265,6 +278,7 @@ export default function EnvEditor({ app, filename = '.env', title }) {
           </span>
         </div>
       )}
+      </>)}
     </div>
   );
 }

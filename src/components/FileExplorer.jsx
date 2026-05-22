@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   FolderOpen, FileText, ChevronRight, ArrowLeft, RefreshCw, Save, Plus, Folder, File as FileIcon,
-  Terminal, X, AlertTriangle, CheckCircle2, Play, FilePlus, Tag as RenameIcon, Pencil, Copy, Scissors, Trash2, ClipboardPaste
+  Terminal, X, AlertTriangle, CheckCircle2, Play, FilePlus, Tag as RenameIcon, Pencil, Copy, Scissors, Trash2, ClipboardPaste, ChevronDown
 } from 'lucide-react';
 import { useT } from '../i18n.js';
+import { useCollapsed } from '../hooks/useCollapsed.js';
 
 // shell-quote: envolve em aspas simples e escapa '
 function sh(s) {
@@ -40,6 +41,7 @@ function parentOf(p) {
 export default function FileExplorer({ app }) {
   const t = useT();
   const isTeam = !!app.team;
+  const [collapsed, toggleCollapsed] = useCollapsed(app.id, 'fileExplorer', true);
   const [path, setPath] = useState(null);     // caminho absoluto atual
   const [workdir, setWorkdir] = useState(null); // raiz (workDir do app)
   const [entries, setEntries] = useState([]);
@@ -283,8 +285,17 @@ export default function FileExplorer({ app }) {
   return (
     <div className="card p-4 space-y-3">
       <div className="flex items-center gap-2 text-sm font-semibold">
-        <FolderOpen size={14} className="text-mute" />
-        {t('explorer.title')}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="flex items-center gap-2 text-left"
+          title={collapsed ? t('common.expand') : t('common.collapse')}
+        >
+          {collapsed ? <ChevronRight size={14} className="text-mute" /> : <ChevronDown size={14} className="text-mute" />}
+          <FolderOpen size={14} className="text-mute" />
+          {t('explorer.title')}
+        </button>
+        {!collapsed && (
         <div className="ml-auto flex items-center gap-1">
           {clipboard && (
             <button
@@ -319,8 +330,10 @@ export default function FileExplorer({ app }) {
             <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
+        )}
       </div>
 
+      {!collapsed && (<>
       {/* breadcrumb (relativo ao workdir do app) */}
       <div className="flex items-center gap-1 text-xs text-mute flex-wrap">
         <button onClick={() => { setSelected(null); load(workdir); }} className="hover:text-text" title={workdir || ''}>
@@ -529,6 +542,7 @@ export default function FileExplorer({ app }) {
           </div>
         </div>
       )}
+      </>)}
     </div>
   );
 }

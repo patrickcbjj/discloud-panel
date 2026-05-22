@@ -4,6 +4,7 @@ const { Notification } = require('electron');
 const DEFAULT_SETTINGS = {
   alertOffline: true,
   alertRestart: true,
+  alertOom: true,
   alertHighRam: true,
   alertHighCpu: true,
   alertApiError: true,
@@ -34,6 +35,7 @@ class AlertEngine {
     this.cooldownMs = 5 * 60_000;
     this.ramWindow = new Map();   // app_id -> array de memory_mb (janela móvel)
     this.cpuWindow = new Map();   // app_id -> array de cpu
+    this.prevOom = new Map();     // app_id -> ramKilled boolean anterior
   }
 
   _settings() {
@@ -100,6 +102,20 @@ class AlertEngine {
           });
         }
       }
+
+      // OOM kill detectado (transição false → true em ramKilled)
+      const meta = appsMeta.find((a) => String(a.id ?? a.appId ?? a._id) === id);
+      const ramKilled = meta?.ramKilled === true;
+      const prevRamKilled = this.prevOom.get(id) === true;
+      if (s.alertOom && ramKilled && !prevRamKilled) {
+        this._notify({
+          title: `💀 ${name} morreu por OOM`,
+          body: `Container foi morto por estouro de RAM. Considere aumentar a RAM alocada.`,
+          appId: id,
+          key: `oom:${id}`
+        });
+      }
+      this.prevOom.set(id, ramKilled);
 
       // RAM > threshold
       if (s.alertHighRam && row.memory_mb != null && row.memory_max) {

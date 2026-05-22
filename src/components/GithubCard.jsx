@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Github, Zap, RefreshCw, Unlink, Link2, ExternalLink, AlertTriangle, CheckCircle2, ChevronRight, ChevronDown, HelpCircle } from 'lucide-react';
+import { Github, Zap, RefreshCw, Unlink, Link2, ExternalLink, AlertTriangle, CheckCircle2, ChevronRight, ChevronDown, HelpCircle, Cloud, Info } from 'lucide-react';
 import { useT, useI18n } from '../i18n.js';
+import { useCollapsed } from '../hooks/useCollapsed.js';
 
 function relTimeFn(t, locale, ts) {
   if (!ts) return null;
@@ -22,6 +23,10 @@ export default function GithubCard({ app }) {
   const [deployMsg, setDeployMsg] = useState(null);
   const [running, setRunning] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  // Quando o app TEM vínculo (nosso ou nativo), começa expandido.
+  // Quando é o form de vincular novo, começa recolhido pra não poluir.
+  const defaultCollapsed = !link && app.autoDeployGit !== 'yes';
+  const [collapsed, toggleCollapsed] = useCollapsed(app.id, 'github', defaultCollapsed);
 
   const reload = async () => {
     const all = await window.api.github.getLinks();
@@ -93,12 +98,95 @@ export default function GithubCard({ app }) {
     await window.api.github.setLink(app.id, { ...link, autoDeploy: v, team: !!app.team });
   };
 
+  // Discloud tem auto-deploy nativo via /syncgit. Se ativo, não mostramos
+  // o card de vincular pra não confundir o usuário (deploy duplicado).
+  if (app.autoDeployGit === 'yes') {
+    const syncUrl = typeof app.syncGit === 'string' && app.syncGit.startsWith('http')
+      ? app.syncGit
+      : null;
+    return (
+      <div className="card p-4 space-y-3">
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="w-full flex items-center gap-2 text-sm font-semibold text-left"
+          title={collapsed ? t('common.expand') : t('common.collapse')}
+        >
+          {collapsed ? <ChevronRight size={14} className="text-mute" /> : <ChevronDown size={14} className="text-mute" />}
+          <Cloud size={14} className="text-accent" />
+          {t('github.nativeTitle')}
+          <span className="ml-auto chip bg-accent/15 text-accent text-[10px] py-0 px-1.5">discloud</span>
+        </button>
+        {!collapsed && (
+          <>
+            <p className="text-xs text-mute">{t('github.nativeDesc')}</p>
+            <div className="bg-panel2 border border-border rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2 text-xs">
+                <Github size={12} className="text-mute" />
+                <span className="text-mute">{t('github.nativeRepoLabel')}:</span>
+                {syncUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => window.api.openExternal(syncUrl)}
+                    className="text-accent hover:underline inline-flex items-center gap-1 font-mono truncate"
+                  >
+                    {syncUrl.replace(/^https?:\/\/(www\.)?github\.com\//, '')}
+                    <ExternalLink size={10} />
+                  </button>
+                ) : app.syncGit ? (
+                  <span className="font-mono text-text truncate">{String(app.syncGit)}</span>
+                ) : (
+                  <span className="text-mute italic">{t('github.nativeNoSyncInfo')}</span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-1.5 text-[11px] text-mute">
+              <Info size={11} className="shrink-0 mt-0.5" />
+              <span>{t('github.nativeManageHint')}</span>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // syncGit existe mas auto-deploy nativo está off — aviso leve sem bloquear nosso flow
+  const syncGitUrl = typeof app.syncGit === 'string' && app.syncGit.startsWith('http') ? app.syncGit : null;
+  const syncGitBanner = (syncGitUrl || (app.syncGit && app.syncGit !== null)) && app.autoDeployGit !== 'yes' ? (
+    <div className="bg-accent/5 border border-accent/30 rounded-lg p-2.5 flex items-start gap-2 text-xs">
+      <Cloud size={13} className="text-accent shrink-0 mt-0.5" />
+      <div className="min-w-0 flex-1">
+        <div className="font-medium text-accent">{t('github.syncLinkedTitle')}</div>
+        <div className="text-mute mt-0.5">{t('github.syncLinkedDesc')}</div>
+        {syncGitUrl && (
+          <button
+            type="button"
+            onClick={() => window.api.openExternal(syncGitUrl)}
+            className="text-accent hover:underline inline-flex items-center gap-1 mt-1 font-mono text-[11px]"
+          >
+            {syncGitUrl.replace(/^https?:\/\/(www\.)?github\.com\//, '')}
+            <ExternalLink size={9} />
+          </button>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   if (link) {
     return (
       <div className="card p-4 space-y-3">
+        {syncGitBanner}
         <div className="flex items-center gap-2 text-sm font-semibold">
-          <Github size={14} />
-          {t('github.title')}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="flex items-center gap-2 text-left"
+            title={collapsed ? t('common.expand') : t('common.collapse')}
+          >
+            {collapsed ? <ChevronRight size={14} className="text-mute" /> : <ChevronDown size={14} className="text-mute" />}
+            <Github size={14} />
+            {t('github.title')}
+          </button>
           <button
             type="button"
             onClick={() => window.api.openExternal(`https://github.com/${link.repo}/tree/${link.branch}`)}
@@ -109,6 +197,8 @@ export default function GithubCard({ app }) {
             <ExternalLink size={11} />
           </button>
         </div>
+        {!collapsed && (<>
+
 
         <div className="text-xs text-mute space-y-1">
           {link.lastSHA ? (
@@ -153,16 +243,25 @@ export default function GithubCard({ app }) {
           </button>
         </div>
         {deployMsg && <div className="text-xs text-mute">{deployMsg}</div>}
+        </>)}
       </div>
     );
   }
 
   return (
     <div className="card p-4 space-y-3">
-      <div className="flex items-center gap-2 text-sm font-semibold">
+      {syncGitBanner}
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        className="w-full flex items-center gap-2 text-sm font-semibold text-left"
+        title={collapsed ? t('common.expand') : t('common.collapse')}
+      >
+        {collapsed ? <ChevronRight size={14} className="text-mute" /> : <ChevronDown size={14} className="text-mute" />}
         <Github size={14} />
         {t('github.linkTitle')}
-      </div>
+      </button>
+      {!collapsed && (<>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="md:col-span-2">
           <label className="text-xs uppercase text-mute tracking-wider">{t('github.repo')}</label>
@@ -284,6 +383,7 @@ git push -u origin main`}</pre>
           <Link2 size={13} className="inline mr-1" /> {t('github.link')}
         </button>
       </div>
+      </>)}
     </div>
   );
 }

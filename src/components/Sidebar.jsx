@@ -1,6 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, Search, ArrowUpDown, X, LayoutDashboard, Users } from 'lucide-react';
+import { Activity, Search, ArrowUpDown, X, LayoutDashboard, Users, Code2, Server } from 'lucide-react';
 import { fmtMB, fmtPct, appTypeLabel } from '../format.js';
+
+// Cores conhecidas por linguagem — pra dar dica visual rápida.
+const LANG_COLOR = {
+  javascript: '#f1e05a', typescript: '#3178c6', node: '#8cc84b',
+  python: '#3572A5', java: '#b07219', go: '#00ADD8', rust: '#dea584',
+  ruby: '#701516', php: '#4F5D95', dockerfile: '#0db7ed',
+  html: '#e34c26', css: '#563d7c', shell: '#89e051', bash: '#89e051',
+  c: '#555555', 'c++': '#f34b7d', cpp: '#f34b7d', 'c#': '#178600', csharp: '#178600',
+  kotlin: '#A97BFF', swift: '#F05138', elixir: '#6e4a7e', lua: '#000080'
+};
+function langColor(lang) {
+  if (!lang) return null;
+  return LANG_COLOR[String(lang).toLowerCase()] || null;
+}
 import Avatar from './Avatar.jsx';
 import { useT } from '../i18n.js';
 
@@ -32,6 +46,7 @@ function renderAppCard(a, selected, onSelect) {
   const memPct = memPctOf(a);
   const typeLbl = appTypeLabel(a.type);
   const label = a.label;
+  const lc = langColor(a.language);
   return (
     <button
       key={a.id}
@@ -56,12 +71,44 @@ function renderAppCard(a, selected, onSelect) {
             {a.team && (
               <span className="chip bg-accent/15 text-accent text-[9px] py-0 px-1.5 shrink-0">team</span>
             )}
+            {a.ramKilled && (
+              <span
+                className="chip bg-danger/15 text-danger text-[9px] py-0 px-1.5 shrink-0 font-bold uppercase border border-danger/30 animate-pulse"
+                title="Container morto por OOM — provavelmente precisa aumentar RAM"
+              >
+                OOM
+              </span>
+            )}
           </div>
           {label && (
             <div className="text-[10px] text-accent2 truncate mt-0.5">{label}</div>
           )}
         </div>
       </div>
+      {(a.language || a.cluster) && (
+        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+          {a.language && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] text-mute bg-panel2 border border-border px-1.5 py-0.5 rounded"
+              title={`Linguagem: ${a.language}`}
+            >
+              {lc
+                ? <span className="w-2 h-2 rounded-full shrink-0" style={{ background: lc }} />
+                : <Code2 size={9} />}
+              <span className="truncate max-w-[80px]">{a.language}</span>
+            </span>
+          )}
+          {a.cluster && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] text-mute bg-panel2 border border-border px-1.5 py-0.5 rounded uppercase tracking-wide"
+              title={`Cluster: ${a.cluster}`}
+            >
+              <Server size={9} />
+              <span className="truncate max-w-[70px]">{a.cluster}</span>
+            </span>
+          )}
+        </div>
+      )}
       <div className="mt-2 flex items-center gap-3 text-[11px] text-mute">
         <span className="flex items-center gap-1"><Activity size={10} />{fmtPct(a.cpu)}</span>
         <span>{fmtMB(a.memory_mb)}{a.memory_max ? ` / ${fmtMB(a.memory_max)}` : ''}</span>
@@ -119,7 +166,7 @@ export default function Sidebar({ apps, selected, onSelect, overviewActive, onOp
       if (filter === 'online' && !a.running) return false;
       if (filter === 'offline' && a.running) return false;
       if (q) {
-        const hay = (a.name + ' ' + a.id + ' ' + (a.type || '')).toLowerCase();
+        const hay = (a.name + ' ' + a.id + ' ' + (a.type || '') + ' ' + (a.language || '') + ' ' + (a.cluster || '')).toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;

@@ -154,9 +154,58 @@ class Poller {
         next.set(id, app);
       }
       this.catalog = next;
+
+      // /app/all não retorna `clusterName`. Pra preencher esse campo (e outros
+      // exclusivos do single-app endpoint), buscamos /app/:id em paralelo pros
+      // ids que ainda não têm cluster cacheado. Roda raramente (5min).
+      await this._enrichWithSingleAppDetails(list.map((a) => String(a.id ?? a.appId ?? a._id)));
     } catch (err) {
       logger.error('[poller] catalog refresh failed:', err.message, 'status=', err.status);
     }
+  }
+
+  async _enrichWithSingleAppDetails(ids) {
+    // Discloud move apps entre clusters em manutenção; revalidar a cada 1h.
+    const REFRESH_AFTER_MS = 60 * 60 * 1000;
+    const now = Date.now();
+    const stale = ids.filter((id) => {
+      const m = this.catalog.get(id);
+      if (!m) return false;
+      if (!m.clusterName) return true;
+      if (!m._detailsFetchedAt) return true;
+      return (now - m._detailsFetchedAt) > REFRESH_AFTER_MS;
+    });
+    if (!stale.length) return;
+    // limita concorrência pra não tomar rate limit (3 por vez)
+    const queue = [...stale];
+    const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
+      while (queue.length) {
+        const id = queue.shift();
+        try {
+          const r = await this.client.app(id);
+          const data = r?.apps || r?.data || r;
+          if (!data) continue;
+          const meta = this.catalog.get(id) || {};
+          this.catalog.set(id, {
+            ...meta,
+            clusterName: data.clusterName ?? meta.clusterName,
+            lang: data.lang ?? meta.lang,
+            language: meta.language ?? data.lang,
+            autoDeployGit: data.autoDeployGit ?? meta.autoDeployGit,
+            syncGit: data.syncGit ?? meta.syncGit,
+            ramKilled: data.ramKilled ?? meta.ramKilled,
+            exitCode: data.exitCode ?? meta.exitCode,
+            addedAtTimestamp: data.addedAtTimestamp ?? meta.addedAtTimestamp,
+            mods: data.mods ?? meta.mods,
+            apts: data.apts ?? meta.apts,
+            _detailsFetchedAt: Date.now()
+          });
+        } catch (e) {
+          logger.warn('[poller] /app/:id failed for', id, ':', e.message);
+        }
+      }
+    });
+    await Promise.all(workers);
   }
 
   _mergeCatalog(statusApp) {
@@ -170,7 +219,16 @@ class Poller {
       type: meta.type ?? statusApp.type,
       mainFile: meta.mainFile ?? statusApp.mainFile,
       ram: meta.ram ?? statusApp.ram,
-      autoRestart: meta.autoRestart ?? statusApp.autoRestart
+      autoRestart: meta.autoRestart ?? statusApp.autoRestart,
+      language: meta.language ?? meta.lang ?? statusApp.language ?? statusApp.lang,
+      cluster: meta.clusterName ?? meta.cluster ?? statusApp.clusterName ?? statusApp.cluster,
+      autoDeployGit: meta.autoDeployGit ?? statusApp.autoDeployGit,
+      syncGit: meta.syncGit ?? statusApp.syncGit,
+      ramKilled: meta.ramKilled ?? statusApp.ramKilled,
+      exitCode: meta.exitCode ?? statusApp.exitCode,
+      addedAtTimestamp: meta.addedAtTimestamp ?? statusApp.addedAtTimestamp,
+      mods: meta.mods ?? statusApp.mods,
+      apts: meta.apts ?? statusApp.apts
     };
   }
 

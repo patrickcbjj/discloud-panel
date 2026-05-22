@@ -55,6 +55,7 @@ export default function Settings({ apps = [] }) {
   const [startMinimized, setStartMinimized] = useState(false);
   const [alertOffline, setAlertOffline] = useState(true);
   const [alertRestart, setAlertRestart] = useState(true);
+  const [alertOom, setAlertOom] = useState(true);
   const [alertHighRam, setAlertHighRam] = useState(true);
   const [alertHighCpu, setAlertHighCpu] = useState(true);
   const [alertApiError, setAlertApiError] = useState(true);
@@ -105,6 +106,7 @@ export default function Settings({ apps = [] }) {
       };
       setAlertOffline(await get('alertOffline', true));
       setAlertRestart(await get('alertRestart', true));
+      setAlertOom(await get('alertOom', true));
       setAlertHighRam(await get('alertHighRam', true));
       setAlertHighCpu(await get('alertHighCpu', true));
       setAlertApiError(await get('alertApiError', true));
@@ -406,6 +408,12 @@ export default function Settings({ apps = [] }) {
           onChange={(v) => setToggle('alertRestart', v, setAlertRestart)}
           label={t('settings.alertRestart')}
           hint={t('settings.alertRestartHint')}
+        />
+        <Toggle
+          checked={alertOom}
+          onChange={(v) => setToggle('alertOom', v, setAlertOom)}
+          label={t('settings.alertOom')}
+          hint={t('settings.alertOomHint')}
         />
         <Toggle
           checked={alertHighRam}

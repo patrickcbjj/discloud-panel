@@ -8,7 +8,8 @@ const DICTS = {
       create: 'Criar', refresh: 'Atualizar', close: 'Fechar', loading: 'Carregando…',
       yes: 'Sim', no: 'Não', confirm: 'Confirmar', error: 'Erro', back: 'Voltar',
       search: 'buscar...', all: 'Todos', online: 'Online', offline: 'Offline',
-      enable: 'Ativar', disable: 'Desativar', open: 'Abrir', settings: 'Configurações'
+      enable: 'Ativar', disable: 'Desativar', open: 'Abrir', settings: 'Configurações',
+      collapse: 'Recolher', expand: 'Expandir'
     },
     titleBar: { refreshTitle: 'Atualizar agora', refreshing: 'Atualizando…', errorChip: 'erro', updatedAt: 'atualizado às', planLabel: 'Plano', statusOnline: 'Discloud online', statusOffline: 'Discloud fora do ar', statusChecking: 'Verificando status…', statusLatency: 'latência {n}ms' },
     sidebar: {
@@ -40,7 +41,25 @@ const DICTS = {
       saveNotes: 'Salvar notas', notesHint: 'Salvo localmente; não envia nada pra Discloud.',
       deployHistory: 'Histórico de deploys',
       dragDrop: 'Solte aqui pra fazer deploy', sentTo: 'Arquivo será enviado pra',
-      ramChange: 'Clique pra alterar a RAM alocada'
+      ramChange: 'Clique pra alterar a RAM alocada',
+      oomBadge: 'OOM',
+      oomTitle: 'Container morto por estouro de RAM (OOM kill)',
+      exitCode: 'exit code',
+      exitCodeOk: 'saída limpa',
+      exitCodeOom: 'morto por OOM (sinal 9)',
+      exitCodeSig: 'morto por sinal {n}',
+      exitCodeErr: 'crash com código {n}',
+      createdAt: 'criado em',
+      createdRel: 'há {v}',
+      autoRestartOn: 'auto-restart',
+      autoRestartHint: 'Discloud reinicia automaticamente quando o app cai',
+      modsTitle: 'Compartilhado com',
+      modsCount: '{n} moderador(es)',
+      modsEmpty: 'Nenhum moderador adicionado.',
+      aptsTitle: 'Pacotes APT instalados',
+      aptsCount: '{n} pacote(s)',
+      aptsEmpty: 'Nenhum pacote APT instalado.',
+      aptsHint: 'Pacotes do sistema (Linux) que a Discloud instalou via discloud.config / Aptfile.'
     },
     settings: {
       title: 'Configurações',
@@ -61,6 +80,7 @@ const DICTS = {
       notifications: 'Notificações',
       alertOffline: 'App caiu (offline)', alertOfflineHint: 'Quando um app passa de online pra offline.',
       alertRestart: 'Restart inesperado', alertRestartHint: 'Quando o uptime cai sem você ter mandado reiniciar.',
+      alertOom: 'OOM kill (RAM estourada)', alertOomHint: 'Container morto pela Discloud por exceder a RAM alocada. Considere aumentar.',
       alertHighRam: 'RAM alta (acima de {n}%)', alertRamHint: 'Limite ajustável abaixo.',
       alertHighCpu: 'CPU sustentada (acima de {n}% por 3 ticks)', alertCpuHint: 'Evita alertas por picos momentâneos.',
       alertApiError: 'Erro na API', alertApiHint: 'Token inválido, rate limit, ou Discloud fora do ar.',
@@ -166,7 +186,15 @@ const DICTS = {
       tutTipsTitle: 'Erros comuns:',
       tutTip404: '404 genérico → repo privado sem token, ou owner/repo errado',
       tutTipBranch: '404 branch → tente master ou veja a branch padrão no GitHub',
-      tutTipBig: 'push falha "file too large" → adicione release/, dist/, node_modules ao .gitignore'
+      tutTipBig: 'push falha "file too large" → adicione release/, dist/, node_modules ao .gitignore',
+      nativeTitle: 'Auto-deploy gerenciado pela Discloud',
+      nativeDesc: 'Esse app já está vinculado a um repositório Git pela própria Discloud (via comando /syncgit). O painel detectou e desativou a integração local pra evitar deploy duplicado.',
+      nativeRepoLabel: 'Repositório',
+      nativeOpenRepo: 'Abrir repo',
+      nativeManageHint: 'Pra alterar ou desativar, use o comando da Discloud no Discord.',
+      nativeNoSyncInfo: 'A Discloud não expõe a URL do repo via API pública.',
+      syncLinkedTitle: 'Repositório vinculado na Discloud',
+      syncLinkedDesc: 'Esse app tem um repo Git registrado na Discloud, mas com auto-deploy desativado. Deploys via painel ainda funcionam normalmente.'
     },
     env: {
       title: 'Variáveis de ambiente', titleEnv: 'Variáveis de ambiente (.env)',
@@ -215,7 +243,8 @@ const DICTS = {
       create: 'Create', refresh: 'Refresh', close: 'Close', loading: 'Loading…',
       yes: 'Yes', no: 'No', confirm: 'Confirm', error: 'Error', back: 'Back',
       search: 'search...', all: 'All', online: 'Online', offline: 'Offline',
-      enable: 'Enable', disable: 'Disable', open: 'Open', settings: 'Settings'
+      enable: 'Enable', disable: 'Disable', open: 'Open', settings: 'Settings',
+      collapse: 'Collapse', expand: 'Expand'
     },
     titleBar: { refreshTitle: 'Refresh now', refreshing: 'Refreshing…', errorChip: 'error', updatedAt: 'updated at', planLabel: 'Plan', statusOnline: 'Discloud online', statusOffline: 'Discloud down', statusChecking: 'Checking status…', statusLatency: '{n}ms latency' },
     sidebar: {
@@ -247,7 +276,25 @@ const DICTS = {
       saveNotes: 'Save notes', notesHint: 'Saved locally; nothing is sent to Discloud.',
       deployHistory: 'Deploy history',
       dragDrop: 'Drop here to deploy', sentTo: 'File will be sent to',
-      ramChange: 'Click to change allocated RAM'
+      ramChange: 'Click to change allocated RAM',
+      oomBadge: 'OOM',
+      oomTitle: 'Container killed by out-of-memory (OOM kill)',
+      exitCode: 'exit code',
+      exitCodeOk: 'clean exit',
+      exitCodeOom: 'killed by OOM (signal 9)',
+      exitCodeSig: 'killed by signal {n}',
+      exitCodeErr: 'crashed with code {n}',
+      createdAt: 'created on',
+      createdRel: '{v} ago',
+      autoRestartOn: 'auto-restart',
+      autoRestartHint: 'Discloud restarts automatically when the app crashes',
+      modsTitle: 'Shared with',
+      modsCount: '{n} moderator(s)',
+      modsEmpty: 'No moderators added.',
+      aptsTitle: 'Installed APT packages',
+      aptsCount: '{n} package(s)',
+      aptsEmpty: 'No APT packages installed.',
+      aptsHint: 'System (Linux) packages installed by Discloud via discloud.config / Aptfile.'
     },
     settings: {
       title: 'Settings',
@@ -268,6 +315,7 @@ const DICTS = {
       notifications: 'Notifications',
       alertOffline: 'App went offline', alertOfflineHint: 'When an app changes from online to offline.',
       alertRestart: 'Unexpected restart', alertRestartHint: 'When uptime drops without you asking for a restart.',
+      alertOom: 'OOM kill (RAM exceeded)', alertOomHint: 'Container killed by Discloud for exceeding allocated RAM. Consider increasing it.',
       alertHighRam: 'High RAM (above {n}%)', alertRamHint: 'Threshold adjustable below.',
       alertHighCpu: 'Sustained CPU (above {n}% for 3 ticks)', alertCpuHint: 'Avoids alerts from momentary spikes.',
       alertApiError: 'API error', alertApiHint: 'Invalid token, rate limit, or Discloud down.',
@@ -373,7 +421,15 @@ const DICTS = {
       tutTipsTitle: 'Common errors:',
       tutTip404: 'Generic 404 → private repo without token, or wrong owner/repo',
       tutTipBranch: '404 branch → try master or check the default branch on GitHub',
-      tutTipBig: 'push fails "file too large" → add release/, dist/, node_modules to .gitignore'
+      tutTipBig: 'push fails "file too large" → add release/, dist/, node_modules to .gitignore',
+      nativeTitle: 'Auto-deploy managed by Discloud',
+      nativeDesc: 'This app is already linked to a Git repository by Discloud itself (via the /syncgit command). The panel detected it and disabled the local integration to avoid duplicate deploys.',
+      nativeRepoLabel: 'Repository',
+      nativeOpenRepo: 'Open repo',
+      nativeManageHint: 'To change or disable, use the Discloud command on Discord.',
+      nativeNoSyncInfo: 'Discloud does not expose the repo URL via public API.',
+      syncLinkedTitle: 'Repository linked on Discloud',
+      syncLinkedDesc: 'This app has a Git repo registered with Discloud, but auto-deploy is off. Deploys via the panel still work normally.'
     },
     env: {
       title: 'Environment variables', titleEnv: 'Environment variables (.env)',

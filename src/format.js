@@ -43,3 +43,33 @@ export const fmtTime = (ms) => {
   const d = new Date(ms);
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 };
+
+// "há X dias / meses / anos" — para datas no passado
+export function fmtRelativePast(ms, locale = 'pt') {
+  if (!ms) return null;
+  const diff = Math.max(0, Date.now() - ms);
+  const s = Math.floor(diff / 1000);
+  const PT = { day: 'dia', days: 'dias', month: 'mês', months: 'meses', year: 'ano', years: 'anos', hour: 'hora', hours: 'horas', min: 'minuto', mins: 'minutos' };
+  const EN = { day: 'day', days: 'days', month: 'month', months: 'months', year: 'year', years: 'years', hour: 'hour', hours: 'hours', min: 'minute', mins: 'minutes' };
+  const L = locale === 'en' ? EN : PT;
+  if (s < 60) return locale === 'en' ? 'just now' : 'agora há pouco';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} ${m === 1 ? L.min : L.mins}`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} ${h === 1 ? L.hour : L.hours}`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} ${d === 1 ? L.day : L.days}`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo} ${mo === 1 ? L.month : L.months}`;
+  const y = Math.floor(d / 365);
+  return `${y} ${y === 1 ? L.year : L.years}`;
+}
+
+// Descreve um exit code retornado pela Discloud
+export function describeExitCode(code, t) {
+  if (code == null) return null;
+  if (code === 0) return { label: t('appDetail.exitCodeOk'), tone: 'ok' };
+  if (code === 137) return { label: t('appDetail.exitCodeOom'), tone: 'oom' };
+  if (code >= 128 && code < 165) return { label: t('appDetail.exitCodeSig', { n: code - 128 }), tone: 'bad' };
+  return { label: t('appDetail.exitCodeErr', { n: code }), tone: 'bad' };
+}

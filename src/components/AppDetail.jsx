@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Play, Square, RotateCw, Download, Terminal, HardDrive, Cpu, MemoryStick, ArrowDownUp, Upload, FileArchive, Users, Tag, NotebookPen, Check, History, CheckCircle2, XCircle } from 'lucide-react';
+import { Play, Square, RotateCw, Download, Terminal, HardDrive, Cpu, MemoryStick, ArrowDownUp, Upload, FileArchive, Users, Tag, NotebookPen, Check, History, CheckCircle2, XCircle, AlertOctagon, RefreshCw as RefreshIcon, CalendarDays } from 'lucide-react';
 import Charts from './Charts.jsx';
 import LogsModal from './LogsModal.jsx';
 import RamModal from './RamModal.jsx';
@@ -9,8 +9,8 @@ import GithubCard from './GithubCard.jsx';
 import EnvEditor from './EnvEditor.jsx';
 import FileExplorer from './FileExplorer.jsx';
 import { Settings2 } from 'lucide-react';
-import { fmtMB, fmtPct, fmtBytes, fmtUptime } from '../format.js';
-import { useT } from '../i18n.js';
+import { fmtMB, fmtPct, fmtBytes, fmtUptime, fmtRelativePast, describeExitCode } from '../format.js';
+import { useT, useI18n } from '../i18n.js';
 
 // Mapeia ação UI -> permissões aceitas pela API Discloud (nomes podem variar)
 const PERM_ALIASES = {
@@ -53,6 +53,7 @@ function Stat({ icon: Icon, label, value, sub }) {
 
 export default function AppDetail({ app, apps = [], user = null }) {
   const t = useT();
+  const { locale } = useI18n();
   const [history, setHistory] = useState([]);
   const [restarts, setRestarts] = useState([]);
   const [deploys, setDeploys] = useState([]);
@@ -199,10 +200,52 @@ export default function AppDetail({ app, apps = [], user = null }) {
               {app.raw?.mainFile && (
                 <span className="chip bg-panel2 text-mute font-mono">{app.raw.mainFile}</span>
               )}
+              {app.autoRestart && (
+                <span
+                  className="chip bg-accent/15 text-accent flex items-center gap-1"
+                  title={t('appDetail.autoRestartHint')}
+                >
+                  <RefreshIcon size={11} /> {t('appDetail.autoRestartOn')}
+                </span>
+              )}
+              {app.ramKilled && (
+                <span
+                  className="chip bg-danger/15 text-danger flex items-center gap-1 font-bold uppercase border border-danger/30 animate-pulse"
+                  title={t('appDetail.oomTitle')}
+                >
+                  <AlertOctagon size={11} /> {t('appDetail.oomBadge')}
+                </span>
+              )}
+              {(() => {
+                const ec = describeExitCode(app.exitCode, t);
+                if (!ec) return null;
+                const cls = ec.tone === 'ok'
+                  ? 'bg-success/15 text-success'
+                  : ec.tone === 'oom'
+                    ? 'bg-danger/15 text-danger border border-danger/30'
+                    : 'bg-warn/15 text-warn';
+                return (
+                  <span className={`chip flex items-center gap-1 ${cls}`} title={`${t('appDetail.exitCode')}: ${app.exitCode}`}>
+                    {t('appDetail.exitCode')} {app.exitCode}
+                    <span className="opacity-70">· {ec.label}</span>
+                  </span>
+                );
+              })()}
             </div>
-            <div className="text-xs text-mute mt-1">
-              {t('appDetail.uptime')}: {fmtUptime(app.uptime_ms)}
-              {app.raw?.startedAt && ` · ${t('appDetail.startedAt')} ${new Date(app.raw.startedAt).toLocaleString()}`}
+            <div className="text-xs text-mute mt-1 flex items-center gap-2 flex-wrap">
+              <span>
+                {t('appDetail.uptime')}: {fmtUptime(app.uptime_ms)}
+                {app.raw?.startedAt && ` · ${t('appDetail.startedAt')} ${new Date(app.raw.startedAt).toLocaleString()}`}
+              </span>
+              {app.addedAtTimestamp && (
+                <span className="flex items-center gap-1" title={new Date(app.addedAtTimestamp).toLocaleString()}>
+                  <span className="text-border">·</span>
+                  <CalendarDays size={11} />
+                  {t('appDetail.createdAt')} {new Date(app.addedAtTimestamp).toLocaleDateString(locale === 'en' ? 'en-US' : 'pt-BR')}
+                  {' '}
+                  <span className="opacity-70">({t('appDetail.createdRel', { v: fmtRelativePast(app.addedAtTimestamp, locale) })})</span>
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -406,6 +449,60 @@ export default function AppDetail({ app, apps = [], user = null }) {
                 )}
               </div>
             ))}
+          </div>
+        </details>
+      )}
+
+      {/* Moderadores compartilhados */}
+      {app.mods && app.mods.length > 0 && (
+        <details className="card p-4" open>
+          <summary className="cursor-pointer text-sm font-semibold flex items-center gap-2">
+            <Users size={14} className="text-mute" />
+            {t('appDetail.modsTitle')}
+            <span className="ml-2 chip bg-panel2 text-mute text-[10px] py-0 px-1.5">
+              {t('appDetail.modsCount', { n: app.mods.length })}
+            </span>
+          </summary>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {app.mods.map((m, i) => {
+              const display = typeof m === 'string' ? m : (m?.id || m?.userID || m?.name || JSON.stringify(m));
+              return (
+                <span
+                  key={i}
+                  className="flex items-center gap-2 bg-panel2 border border-border rounded-full pl-1 pr-3 py-1"
+                  title={display}
+                >
+                  <Avatar name={display} size={20} />
+                  <span className="text-xs font-mono truncate max-w-[180px]">{display}</span>
+                </span>
+              );
+            })}
+          </div>
+        </details>
+      )}
+
+      {/* Pacotes APT instalados no container */}
+      {app.apts && app.apts.length > 0 && (
+        <details className="card p-4">
+          <summary className="cursor-pointer text-sm font-semibold flex items-center gap-2">
+            <FileArchive size={14} className="text-mute" />
+            {t('appDetail.aptsTitle')}
+            <span className="ml-2 chip bg-panel2 text-mute text-[10px] py-0 px-1.5">
+              {t('appDetail.aptsCount', { n: app.apts.length })}
+            </span>
+          </summary>
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-mute">{t('appDetail.aptsHint')}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {app.apts.map((pkg, i) => (
+                <code
+                  key={i}
+                  className="text-[11px] font-mono bg-panel2 border border-border rounded px-2 py-0.5 text-text"
+                >
+                  {String(pkg)}
+                </code>
+              ))}
+            </div>
           </div>
         </details>
       )}

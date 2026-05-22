@@ -7,6 +7,7 @@ const { Poller } = require('./poller');
 const { AlertEngine } = require('./alerts');
 const { BackupScheduler } = require('./backupScheduler');
 const { GithubScheduler } = require('./githubScheduler');
+const { DiscloudStatusMonitor } = require('./discloudStatus');
 const github = require('./github');
 const logger = require('./logger');
 
@@ -42,6 +43,7 @@ let poller;
 let alerts;
 let backup;
 let githubSched;
+let statusMon;
 let isQuitting = false;
 let lastStats = { online: 0, total: 0 };
 
@@ -303,6 +305,13 @@ app.whenReady().then(async () => {
   });
   githubSched.start();
 
+  statusMon = new DiscloudStatusMonitor({
+    onChange: (s) => {
+      if (win && !win.isDestroyed()) win.webContents.send('discloud-status', s);
+    }
+  });
+  statusMon.start();
+
   ensurePoller();
   createTray();
   createWindow();
@@ -351,6 +360,9 @@ ipcMain.handle('config:set', (_e, key, value) => {
 });
 ipcMain.handle('config:hasToken', () => Boolean(store.get('apiToken')));
 ipcMain.handle('config:getLoginItemSettings', () => app.getLoginItemSettings());
+
+ipcMain.handle('discloud:serviceStatus', () => statusMon?.current() ?? { status: 'unknown' });
+ipcMain.handle('discloud:probeNow', async () => { await statusMon?.probe(); return statusMon?.current(); });
 
 ipcMain.handle('api:user', async () => (await getClient()?.user()) ?? null);
 ipcMain.handle('api:allStatus', async () => (await getClient()?.allStatus()) ?? null);

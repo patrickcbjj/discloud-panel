@@ -10,7 +10,7 @@ const DICTS = {
       search: 'buscar...', all: 'Todos', online: 'Online', offline: 'Offline',
       enable: 'Ativar', disable: 'Desativar', open: 'Abrir', settings: 'Configurações'
     },
-    titleBar: { refreshTitle: 'Atualizar agora', refreshing: 'Atualizando…', errorChip: 'erro', updatedAt: 'atualizado às', planLabel: 'Plano' },
+    titleBar: { refreshTitle: 'Atualizar agora', refreshing: 'Atualizando…', errorChip: 'erro', updatedAt: 'atualizado às', planLabel: 'Plano', statusOnline: 'Discloud online', statusOffline: 'Discloud fora do ar', statusChecking: 'Verificando status…', statusLatency: 'latência {n}ms' },
     sidebar: {
       overview: 'Visão geral', apps: 'apps', myApps: 'Meus apps', team: 'Equipe',
       noApps: 'Nenhum app retornado pela API.', noTeamApps: 'Você não é mod de nenhum app de equipe.',
@@ -217,7 +217,7 @@ const DICTS = {
       search: 'search...', all: 'All', online: 'Online', offline: 'Offline',
       enable: 'Enable', disable: 'Disable', open: 'Open', settings: 'Settings'
     },
-    titleBar: { refreshTitle: 'Refresh now', refreshing: 'Refreshing…', errorChip: 'error', updatedAt: 'updated at', planLabel: 'Plan' },
+    titleBar: { refreshTitle: 'Refresh now', refreshing: 'Refreshing…', errorChip: 'error', updatedAt: 'updated at', planLabel: 'Plan', statusOnline: 'Discloud online', statusOffline: 'Discloud down', statusChecking: 'Checking status…', statusLatency: '{n}ms latency' },
     sidebar: {
       overview: 'Overview', apps: 'apps', myApps: 'My apps', team: 'Team',
       noApps: 'No apps returned by the API.', noTeamApps: "You're not a mod of any team app.",

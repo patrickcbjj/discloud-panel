@@ -33,7 +33,9 @@ contextBridge.exposeInMainWorld('api', {
     explorerOpen:   (id, team, cPath) => invoke('api:explorerOpen', id, team, cPath),
     explorerCreate: (id, team, cPath, typeFile) => invoke('api:explorerCreate', id, team, cPath, typeFile),
     explorerEdit:   (id, team, cPath, content) => invoke('api:explorerEdit', id, team, cPath, content),
-    exec:           (id, team, cmd) => invoke('api:exec', id, team, cmd)
+    exec:           (id, team, cmd) => invoke('api:exec', id, team, cmd),
+    serviceStatus:  () => invoke('discloud:serviceStatus'),
+    probeStatus:    () => invoke('discloud:probeNow')
   },
   dialog: {
     openZip: () => invoke('dialog:openZip')
@@ -127,6 +129,11 @@ contextBridge.exposeInMainWorld('api', {
     const handler = (_e, payload) => cb(payload);
     ipcRenderer.on('notes-changed', handler);
     return () => ipcRenderer.removeListener('notes-changed', handler);
+  },
+  onDiscloudStatus: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on('discloud-status', handler);
+    return () => ipcRenderer.removeListener('discloud-status', handler);
   },
   onBackupFinished: (cb) => {
     const handler = (_e, payload) => cb(payload);

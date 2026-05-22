@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 10 11 15;          /* preto Discloud */
+  --panel: 18 20 26;
+  --panel2: 26 29 37;
+  --border: 38 43 54;
+  --accent: 34 197 94;     /* verde Discloud */
+  --accent2: 124 92 255;
+  --success: 34 197 94;
+  --danger: 239 68 68;
+  --warn: 245 158 11;
+  --mute: 148 159 178;
+  --text: 234 236 240;
+  --scrollbar: 38 43 54;
+  --scrollbar-hover: 60 66 80;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: 246 247 251;
+  --panel: 255 255 255;
+  --panel2: 241 244 249;
+  --border: 210 216 226;
+  --accent: 22 163 74;
+  --accent2: 109 78 230;
+  --success: 21 128 61;
+  --danger: 185 28 28;
+  --warn: 180 83 9;
+  --mute: 51 65 85;          /* slate-700, mais legível em fundo claro */
+  --text: 15 23 42;          /* slate-900 */
+  --scrollbar: 180 188 202;
+  --scrollbar-hover: 130 142 160;
+  color-scheme: light;
+}
+
+html, body, #root { height: 100%; }
+body {
+  overflow: hidden;
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
+}
+
+* { -webkit-user-select: none; user-select: none; }
+input, textarea, .selectable, code, pre { -webkit-user-select: text; user-select: text; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgb(var(--scrollbar)); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--scrollbar-hover)); }
+
+.titlebar-drag { -webkit-app-region: drag; }
+.titlebar-nodrag { -webkit-app-region: no-drag; }
+
+.card {
+  @apply bg-panel border border-border rounded-xl;
+}
+.btn {
+  @apply px-3 py-1.5 rounded-lg border border-border bg-panel2 hover:bg-border text-sm font-medium transition-colors;
+}
+.btn-primary {
+  @apply px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-sm font-medium transition-colors;
+}
+.btn-danger {
+  @apply px-3 py-1.5 rounded-lg bg-danger/15 border border-danger/30 hover:bg-danger/25 text-danger text-sm font-medium transition-colors;
+}
+.chip {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+}
+.dot {
+  @apply inline-block w-1.5 h-1.5 rounded-full;
+}

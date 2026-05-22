@@ -1,0 +1,75 @@
+{
+  "name": "discloud-panel",
+  "version": "0.1.0",
+  "description": "Painel local para monitorar apps hospedados na Discloud",
+  "main": "electron/main.js",
+  "author": "Patrick",
+  "license": "MIT",
+  "scripts": {
+    "dev:vite": "vite",
+    "dev:electron": "wait-on tcp:5173 && electron .",
+    "dev": "concurrently -k -n vite,electron -c blue,magenta \"npm:dev:vite\" \"npm:dev:electron\"",
+    "build": "vite build",
+    "start": "electron .",
+    "gen-icon": "node scripts/gen-icon.js",
+    "dist": "npm run build && electron-builder --win"
+  },
+  "dependencies": {
+    "sql.js": "^1.12.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "lucide-react": "^0.460.0",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.13.3",
+    "tailwindcss": "^3.4.15",
+    "vite": "^5.4.11",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "dev.patrick.discloud-panel",
+    "productName": "Discloud Panel",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/sql.js/dist/**"
+    ],
+    "extraResources": [
+      { "from": "build/icon.png", "to": "icon.png" }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Discloud Panel",
+      "runAfterFinish": true
+    }
+  }
+}

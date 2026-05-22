@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, safeStorage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { DiscloudClient } = require('./discloud');
@@ -26,8 +26,62 @@ class JsonStore {
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     fs.writeFileSync(this.file, JSON.stringify(this.data, null, 2));
   }
+}const store = new JsonStore(path.join(app.getPath('userData'), 'config.json'));
+
+// Tokens guardados no config.json são criptografados via Electron safeStorage
+// (DPAPI no Windows, Keychain no macOS, libsecret no Linux). Mantém leitura
+// transparente: o resto do código segue chamando store.get('apiToken') etc.
+const SECRET_KEYS = new Set(['apiToken', 'githubToken']);
+
+function installSecretEncryption() {
+  const origGet = store.get.bind(store);
+  const origSet = store.set.bind(store);
+  const canEncrypt = (() => {
+    try { return safeStorage.isEncryptionAvailable(); } catch { return false; }
+  })();
+
+  store.get = (key, def) => {
+    const raw = origGet(key, undefined);
+    if (raw === undefined) return def;
+    if (SECRET_KEYS.has(key) && raw && typeof raw === 'object' && raw.__enc) {
+      if (!canEncrypt) return def;
+      try {
+        return safeStorage.decryptString(Buffer.from(raw.v, 'base64'));
+      } catch (e) {
+        logger.warn(`[secrets] falha ao decifrar ${key}:`, e?.message);
+        return def;
+      }
+    }
+    return raw;
+  };
+
+  store.set = (key, value) => {
+    if (SECRET_KEYS.has(key) && canEncrypt && typeof value === 'string' && value.length > 0) {
+      const enc = safeStorage.encryptString(value).toString('base64');
+      return origSet(key, { __enc: true, v: enc });
+    }
+    return origSet(key, value);
+  };
+
+  if (!canEncrypt) {
+    logger.warn('[secrets] safeStorage indisponível neste sistema — tokens ficarão em plain text');
+    return;
+  }
+
+  // Migra tokens legados que estavam em plain text
+  for (const key of SECRET_KEYS) {
+    const raw = origGet(key, undefined);
+    if (typeof raw === 'string' && raw.length > 0) {
+      try {
+        const enc = safeStorage.encryptString(raw).toString('base64');
+        origSet(key, { __enc: true, v: enc });
+        logger.info(`[secrets] ${key} migrado para armazenamento criptografado`);
+      } catch (e) {
+        logger.warn(`[secrets] falha ao migrar ${key}:`, e?.message);
+      }
+    }
+  }
 }
-const store = new JsonStore(path.join(app.getPath('userData'), 'config.json'));
 
 // instância única (evita 2 processos)
 if (!app.requestSingleInstanceLock()) {
@@ -243,6 +297,7 @@ app.on('second-instance', () => showWindow());
 app.whenReady().then(async () => {
   logger.init(app.getPath('userData'));
   logger.info('userData:', app.getPath('userData'));
+  installSecretEncryption();
   logger.info('isDev:', isDev, 'token set:', !!store.get('apiToken'));
 
   const dataDir = path.join(app.getPath('userData'), 'data');

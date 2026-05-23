@@ -5,6 +5,10 @@ import TokenGate from './components/TokenGate.jsx';
 import TitleBar from './components/TitleBar.jsx';
 import Settings from './components/Settings.jsx';
 import Overview from './components/Overview.jsx';
+import UpdateBanner from './components/UpdateBanner.jsx';
+import UpdateAvailableModal from './components/UpdateAvailableModal.jsx';
+import AboutModal from './components/AboutModal.jsx';
+import { computeHealth } from './health.js';
 import { useT } from './i18n.js';
 
 export default function App() {
@@ -19,6 +23,8 @@ export default function App() {
   const [polling, setPolling] = useState(false);
   const [notes, setNotes] = useState({});
   const [view, setView] = useState('overview'); // overview | dashboard | settings
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [slaMap, setSlaMap] = useState({}); // appId -> stats das últimas 24h
 
   useEffect(() => {
     window.api.config.hasToken().then(setHasToken);
@@ -30,6 +36,29 @@ export default function App() {
       window.api.window?.setTheme?.(theme);
     })();
   }, []);
+
+  useEffect(() => {
+    return window.api.onOpenAbout?.(() => setAboutOpen(true));
+  }, []);
+
+  // Carrega SLA 24h pra todos os apps. Re-fetch a cada 2min e sempre que
+  // um snapshot novo chegar (asssim health score reage rapidamente após
+  // restart/OOM detectados).
+  useEffect(() => {
+    if (!hasToken) return;
+    let dead = false;
+    const fetchSla = async () => {
+      try {
+        const since = Date.now() - 24 * 3600 * 1000;
+        const stats = await window.api.db.slaStats(since, null);
+        if (!dead) setSlaMap(stats || {});
+      } catch {}
+    };
+    fetchSla();
+    const t = setInterval(fetchSla, 120_000);
+    const offSnap = window.api.onSnapshot(() => fetchSla());
+    return () => { dead = true; clearInterval(t); offSnap(); };
+  }, [hasToken]);
 
   useEffect(() => {
     if (!hasToken) return;
@@ -62,7 +91,7 @@ export default function App() {
         (a) => String(a.id ?? a.appId ?? a._id) === s.app_id
       ) || {};
       const n = notes[s.app_id];
-      return {
+      const partial = {
         id: s.app_id,
         name: raw.name || raw.id || s.app_id,
         avatarURL: raw.avatarURL || raw.avatar || null,
@@ -83,8 +112,10 @@ export default function App() {
         ...s,
         raw
       };
+      partial._health = computeHealth(slaMap[s.app_id], partial);
+      return partial;
     });
-  }, [snapshots, appsMeta, notes]);
+  }, [snapshots, appsMeta, notes, slaMap]);
 
   const current = apps.find((a) => a.id === selected) || null;
 
@@ -117,7 +148,7 @@ export default function App() {
         />
         <main className="flex-1 min-w-0 overflow-y-auto">
           {view === 'settings' ? (
-            <Settings apps={apps} onChanged={() => {}} />
+            <Settings apps={apps} onChanged={() => {}} onOpenAbout={() => setAboutOpen(true)} />
           ) : view === 'overview' ? (
             <Overview
               apps={apps}
@@ -133,6 +164,9 @@ export default function App() {
           )}
         </main>
       </div>
+      <UpdateBanner onOpenSettings={() => setView('settings')} />
+      <UpdateAvailableModal />
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
     </div>
   );
 }

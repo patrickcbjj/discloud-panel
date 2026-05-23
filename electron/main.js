@@ -9,6 +9,7 @@ const { BackupScheduler } = require('./backupScheduler');
 const { GithubScheduler } = require('./githubScheduler');
 const { DiscloudStatusMonitor } = require('./discloudStatus');
 const github = require('./github');
+const { UpdateManager } = require('./updater');
 const logger = require('./logger');
 
 const isDev = !app.isPackaged;
@@ -98,6 +99,7 @@ let alerts;
 let backup;
 let githubSched;
 let statusMon;
+let updater;
 let isQuitting = false;
 let lastStats = { online: 0, total: 0 };
 
@@ -215,6 +217,13 @@ function createTray() {
       }
     },
     { type: 'separator' },
+    {
+      label: `Sobre o Discloud Panel (v${app.getVersion()})`,
+      click: () => {
+        showWindow();
+        if (win && !win.isDestroyed()) win.webContents.send('open-about');
+      }
+    },
     {
       label: 'Sair',
       click: () => {
@@ -350,7 +359,8 @@ app.whenReady().then(async () => {
             fileName: info.fileName || `github:${info.repo}@${(info.sha || '').slice(0, 7)}`,
             fileSize: info.fileSize || null,
             success: info.success,
-            message: info.message || (info.triggeredBy === 'auto' ? 'auto-deploy' : 'deploy manual')
+            message: info.message || (info.triggeredBy === 'auto' ? 'auto-deploy' : 'deploy manual'),
+            buildLog: info.buildLog || ''
           });
         } catch (e) { logger.warn('[github] insertDeploy failed:', e?.message); }
       }
@@ -366,6 +376,12 @@ app.whenReady().then(async () => {
     }
   });
   statusMon.start();
+
+  updater = new UpdateManager({
+    getWindow: () => win,
+    iconPath: iconPath()
+  });
+  updater.init();
 
   ensurePoller();
   createTray();
@@ -538,6 +554,8 @@ ipcMain.handle('db:restarts', (_e, id, sinceMs) =>
 ipcMain.handle('db:purgeOlderThan', (_e, ms) => db.purgeOlderThan(ms));
 ipcMain.handle('db:insertDeploy', (_e, appId, info) => { db.insertDeploy(appId, info); return true; });
 ipcMain.handle('db:deploys', (_e, appId, limit) => db.deploys(appId, limit));
+ipcMain.handle('db:deployBuildLog', (_e, appId, ts) => db.deployBuildLog(appId, ts));
+ipcMain.handle('db:slaStats', (_e, sinceMs, appId) => db.slaStatsAll(sinceMs, appId || null));
 
 ipcMain.handle('poller:tickNow', async () => {
   if (poller) return poller.tickNow();
@@ -558,8 +576,34 @@ ipcMain.handle('app:quit', () => {
   isQuitting = true;
   app.quit();
 });
+ipcMain.handle('app:info', () => ({
+  version: app.getVersion(),
+  name: app.getName(),
+  electron: process.versions.electron,
+  chrome: process.versions.chrome,
+  node: process.versions.node,
+  platform: process.platform,
+  arch: process.arch
+}));
 
 ipcMain.handle('shell:openExternal', (_e, url) => shell.openExternal(url));
+
+// ---------- Auto-update ----------
+ipcMain.handle('updater:state', () => updater ? updater.current() : { status: 'idle', currentVersion: app.getVersion() });
+ipcMain.handle('updater:checkNow', async () => {
+  if (!updater) return { ok: false, error: 'updater indisponível' };
+  await updater.check();
+  return { ok: true, state: updater.current() };
+});
+ipcMain.handle('updater:download', async () => {
+  if (!updater) return { ok: false, error: 'updater indisponível' };
+  await updater.download();
+  return { ok: true, state: updater.current() };
+});
+ipcMain.handle('updater:quitAndInstall', () => {
+  isQuitting = true;
+  updater?.quitAndInstall();
+});
 
 // ---------- GitHub ----------
 ipcMain.handle('github:getLinks', () => store.get('githubLinks') || {});

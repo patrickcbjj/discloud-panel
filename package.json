@@ -1,6 +1,6 @@
 {
   "name": "discloud-panel",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Painel local para monitorar apps hospedados na Discloud",
   "main": "electron/main.js",
   "author": "Patrick",
@@ -11,11 +11,12 @@
     "dev": "concurrently -k -n vite,electron -c blue,magenta \"npm:dev:vite\" \"npm:dev:electron\"",
     "build": "vite build",
     "start": "electron .",
-    "gen-icon": "node scripts/gen-icon.js",
+    "gen-icon": "electron scripts/gen-icon.js",
     "gen-banner": "electron scripts/gen-banner.js",
     "dist": "npm run build && electron-builder --win"
   },
   "dependencies": {
+    "electron-updater": "^6.8.3",
     "sql.js": "^1.12.0"
   },
   "devDependencies": {
@@ -44,6 +45,14 @@
       "electron/**/*",
       "dist/**/*",
       "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "patrickcbjj",
+        "repo": "discloud-panel",
+        "releaseType": "draft"
+      }
     ],
     "asarUnpack": [
       "node_modules/sql.js/dist/**"

@@ -66,6 +66,11 @@ class Database {
       CREATE INDEX IF NOT EXISTS idx_deploys_app_ts ON deploys(app_id, ts);
     `);
 
+    // Migrations idempotentes: ALTER TABLE com coluna nova. sql.js erra se a
+    // coluna já existe, então faz try/catch silencioso.
+    try { this.db.run(`ALTER TABLE deploys ADD COLUMN build_log TEXT`); }
+    catch { /* coluna já existe */ }
+
     // Não mantemos prepared statements como propriedades porque
     // db.export() do sql.js fecha TODOS os statements abertos.
   }
@@ -158,9 +163,18 @@ class Database {
   }
 
   insertDeploy(appId, info) {
+    // Build logs podem ser grandes (Docker imprime muita coisa). Cap em ~500KB
+    // por deploy mantendo o final (que é o que importa pra debug). Mantém só
+    // os deploys mais recentes — purga em separado quando lista crescer.
+    let buildLog = info.buildLog || null;
+    if (typeof buildLog === 'string' && buildLog.length > 500_000) {
+      const head = `[…log truncado, ${buildLog.length} caracteres, mantendo final…]\n`;
+      buildLog = head + buildLog.slice(-(500_000 - head.length));
+    }
+
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO deploys (app_id, ts, file_name, file_size, success, message)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO deploys (app_id, ts, file_name, file_size, success, message, build_log)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     try {
       stmt.run([
@@ -169,21 +183,38 @@ class Database {
         info.fileName || null,
         info.fileSize || null,
         info.success ? 1 : 0,
-        info.message || null
+        info.message || null,
+        buildLog
       ]);
     } finally { stmt.free(); }
     this._markDirty();
   }
 
+  // Lista de deploys sem o build_log (que pode ser grande). UI usa esta
+  // pra renderizar o histórico — o log é carregado on-demand.
   deploys(appId, limit = 20) {
     const stmt = this.db.prepare(
-      `SELECT * FROM deploys WHERE app_id = ? ORDER BY ts DESC LIMIT ?`
+      `SELECT app_id, ts, file_name, file_size, success, message,
+              CASE WHEN build_log IS NULL OR build_log = '' THEN 0 ELSE 1 END AS has_log,
+              LENGTH(build_log) AS log_size
+       FROM deploys WHERE app_id = ? ORDER BY ts DESC LIMIT ?`
     );
     stmt.bind([appId, limit]);
     const out = [];
     while (stmt.step()) out.push(stmt.getAsObject());
     stmt.free();
     return out;
+  }
+
+  // Carrega o build log de um deploy específico (sob demanda).
+  deployBuildLog(appId, ts) {
+    const stmt = this.db.prepare(
+      `SELECT build_log FROM deploys WHERE app_id = ? AND ts = ? LIMIT 1`
+    );
+    stmt.bind([appId, ts]);
+    const log = stmt.step() ? (stmt.getAsObject().build_log || '') : '';
+    stmt.free();
+    return log;
   }
 
   historyRange(sinceMs, appId) {
@@ -195,6 +226,73 @@ class Database {
     const out = [];
     while (stmt.step()) out.push(stmt.getAsObject());
     stmt.free();
+    return out;
+  }
+
+  // ------------------------------------------------------------
+  // SLA / saúde: agrega snapshots numa janela pra calcular uptime %,
+  // CPU/RAM médios, variância de CPU e nº de restarts. Tudo numa varredura
+  // só por tabela. Resultado: `{ appId → { samples, up, avgRamPct, avgCpu,
+  // cpuStddev, firstTs, lastTs, restarts } }`. Restarts vêm da tabela
+  // `restarts` (já populada pelo poller). Para um único app, passar appId.
+  slaStatsAll(sinceMs, appId = null) {
+    const out = {};
+
+    const sql = appId
+      ? `SELECT app_id,
+                COUNT(*) AS samples,
+                SUM(CASE WHEN running=1 THEN 1 ELSE 0 END) AS up,
+                AVG(CASE WHEN memory_max > 0 THEN (memory_mb * 100.0 / memory_max) ELSE NULL END) AS avg_ram_pct,
+                AVG(cpu) AS avg_cpu,
+                AVG(cpu * cpu) AS avg_cpu_sq,
+                MIN(ts) AS first_ts,
+                MAX(ts) AS last_ts
+         FROM snapshots WHERE ts >= ? AND app_id = ? GROUP BY app_id`
+      : `SELECT app_id,
+                COUNT(*) AS samples,
+                SUM(CASE WHEN running=1 THEN 1 ELSE 0 END) AS up,
+                AVG(CASE WHEN memory_max > 0 THEN (memory_mb * 100.0 / memory_max) ELSE NULL END) AS avg_ram_pct,
+                AVG(cpu) AS avg_cpu,
+                AVG(cpu * cpu) AS avg_cpu_sq,
+                MIN(ts) AS first_ts,
+                MAX(ts) AS last_ts
+         FROM snapshots WHERE ts >= ? GROUP BY app_id`;
+
+    const stmt = this.db.prepare(sql);
+    stmt.bind(appId ? [sinceMs, appId] : [sinceMs]);
+    while (stmt.step()) {
+      const r = stmt.getAsObject();
+      const avgCpu = r.avg_cpu || 0;
+      const avgCpuSq = r.avg_cpu_sq || 0;
+      // variância = E[X²] - E[X]² (clamp ≥0 pra evitar -ε numérico)
+      const variance = Math.max(0, avgCpuSq - avgCpu * avgCpu);
+      out[r.app_id] = {
+        samples: r.samples || 0,
+        up: r.up || 0,
+        uptimePct: r.samples > 0 ? (r.up / r.samples) * 100 : null,
+        avgRamPct: r.avg_ram_pct,
+        avgCpu,
+        cpuStddev: Math.sqrt(variance),
+        firstTs: r.first_ts,
+        lastTs: r.last_ts,
+        restarts: 0
+      };
+    }
+    stmt.free();
+
+    // Adiciona contagem de restarts no mesmo período
+    const sqlR = appId
+      ? `SELECT app_id, COUNT(*) AS n FROM restarts WHERE ts >= ? AND app_id = ? GROUP BY app_id`
+      : `SELECT app_id, COUNT(*) AS n FROM restarts WHERE ts >= ? GROUP BY app_id`;
+    const stmtR = this.db.prepare(sqlR);
+    stmtR.bind(appId ? [sinceMs, appId] : [sinceMs]);
+    while (stmtR.step()) {
+      const r = stmtR.getAsObject();
+      if (!out[r.app_id]) out[r.app_id] = { samples: 0, up: 0, uptimePct: null, restarts: 0 };
+      out[r.app_id].restarts = r.n || 0;
+    }
+    stmtR.free();
+
     return out;
   }
 

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Discloud Panel — icon</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 256px; height: 256px; background: transparent; overflow: hidden; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision">
+  <defs>
+    <!-- Base backdrop gradient: deep navy → indigo -->
+    <linearGradient id="bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#0a0e1c"/>
+      <stop offset="60%"  stop-color="#11132a"/>
+      <stop offset="100%" stop-color="#181433"/>
+    </linearGradient>
+
+    <!-- Radial blooms: cyan top-left, violet bottom-right -->
+    <radialGradient id="bloomBlue" cx="55" cy="55" r="170" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#5b8def" stop-opacity="0.35"/>
+      <stop offset="60%"  stop-color="#5b8def" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bloomViolet" cx="210" cy="220" r="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#7c5cff" stop-opacity="0.45"/>
+      <stop offset="60%"  stop-color="#7c5cff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- D body fill: 3-stop gradient (light cyan → electric blue → violet) -->
+    <linearGradient id="dBody" x1="58" y1="50" x2="200" y2="208" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#9cc1ff"/>
+      <stop offset="40%"  stop-color="#5b8def"/>
+      <stop offset="100%" stop-color="#8c6dff"/>
+    </linearGradient>
+
+    <!-- Top specular highlight gradient -->
+    <linearGradient id="specGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Status dot glow filter -->
+    <filter id="dotGlow" x="-300%" y="-300%" width="700%" height="700%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4"/>
+    </filter>
+
+    <!-- D outer glow filter -->
+    <filter id="dHalo" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9"/>
+    </filter>
+
+    <!-- Scanlines: 3px period, very faint -->
+    <pattern id="scan" x="0" y="0" width="3" height="3" patternUnits="userSpaceOnUse">
+      <rect width="3" height="1" fill="#ffffff" opacity="0.022"/>
+    </pattern>
+
+    <!-- Rounded square clip mask -->
+    <clipPath id="rounded">
+      <rect x="0" y="0" width="256" height="256" rx="52" ry="52"/>
+    </clipPath>
+
+    <!-- Reusable D outline path data -->
+    <path id="dPath" fill-rule="evenodd"
+      d="M 58 50
+         L 130 50
+         C 170 50, 198 78, 198 128
+         C 198 178, 170 206, 130 206
+         L 58 206 Z
+         M 92 86
+         L 130 86
+         C 154 86, 166 102, 166 128
+         C 166 154, 154 170, 130 170
+         L 92 170 Z"/>
+  </defs>
+
+  <g clip-path="url(#rounded)">
+    <!-- Layered backdrop -->
+    <rect width="256" height="256" fill="url(#bg)"/>
+    <rect width="256" height="256" fill="url(#bloomBlue)"/>
+    <rect width="256" height="256" fill="url(#bloomViolet)"/>
+    <rect width="256" height="256" fill="url(#scan)"/>
+
+    <!-- Sci-fi HUD corner brackets -->
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 16 30 L 16 16 L 30 16"     stroke="#5b8def" stroke-width="2.5" opacity="0.72"/>
+      <path d="M 240 226 L 240 240 L 226 240" stroke="#7c5cff" stroke-width="2.5" opacity="0.72"/>
+      <!-- tiny accent dots opposite to brackets -->
+      <circle cx="240" cy="16"  r="1.6" fill="#5b8def" opacity="0.5"/>
+      <circle cx="16"  cy="240" r="1.6" fill="#7c5cff" opacity="0.5"/>
+    </g>
+
+    <!-- Soft ground shadow under the D -->
+    <ellipse cx="128" cy="218" rx="68" ry="6" fill="#000000" opacity="0.45"/>
+
+    <!-- D outer halo (blurred copy behind for neon bloom) -->
+    <g opacity="0.55" filter="url(#dHalo)">
+      <use href="#dPath" fill="#7c5cff"/>
+    </g>
+
+    <!-- Main D body -->
+    <use href="#dPath" fill="url(#dBody)"/>
+
+    <!-- Inner counter shadow: subtle dark stroke along the inner top arc for depth -->
+    <path
+      d="M 92 86 L 130 86 C 154 86, 166 102, 166 128"
+      fill="none"
+      stroke="#000000"
+      stroke-width="3"
+      stroke-linecap="round"
+      opacity="0.35"/>
+
+    <!-- Top specular: glossy reflection along the upper edge -->
+    <path
+      d="M 66 50 L 130 50 C 162 50, 184 64, 193 86"
+      fill="none"
+      stroke="url(#specGrad)"
+      stroke-width="3.5"
+      stroke-linecap="round"
+      opacity="0.9"/>
+
+    <!-- Status pulse — green LED inside the counter -->
+    <g>
+      <!-- outer atmospheric halo -->
+      <circle cx="129" cy="128" r="22" fill="#22e575" opacity="0.22" filter="url(#dotGlow)"/>
+      <!-- mid ring -->
+      <circle cx="129" cy="128" r="11"  fill="#22e575" opacity="0.55"/>
+      <!-- solid core -->
+      <circle cx="129" cy="128" r="6.5" fill="#3aff8f"/>
+      <!-- specular highlight on the dot -->
+      <circle cx="127" cy="125.5" r="2.4" fill="#e7ffef"/>
+    </g>
+
+    <!-- Inner border highlight on the rounded square edge -->
+    <rect x="0.5" y="0.5" width="255" height="255" rx="51.5" ry="51.5"
+          fill="none" stroke="#ffffff" stroke-opacity="0.09" stroke-width="1"/>
+  </g>
+</svg>
+</body>
+</html>

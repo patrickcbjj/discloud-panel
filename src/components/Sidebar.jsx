@@ -16,6 +16,7 @@ function langColor(lang) {
   return LANG_COLOR[String(lang).toLowerCase()] || null;
 }
 import Avatar from './Avatar.jsx';
+import HealthChip from './HealthChip.jsx';
 import { useT } from '../i18n.js';
 
 function memPctOf(a) {
@@ -112,6 +113,9 @@ function renderAppCard(a, selected, onSelect) {
       <div className="mt-2 flex items-center gap-3 text-[11px] text-mute">
         <span className="flex items-center gap-1"><Activity size={10} />{fmtPct(a.cpu)}</span>
         <span>{fmtMB(a.memory_mb)}{a.memory_max ? ` / ${fmtMB(a.memory_max)}` : ''}</span>
+        {a._health && a._health.score != null && (
+          <HealthChip health={a._health} variant="tiny" className="ml-auto" />
+        )}
       </div>
       {memPct > 0 && (
         <div className="mt-1.5 h-1 bg-border rounded-full overflow-hidden">

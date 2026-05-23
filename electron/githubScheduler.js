@@ -72,7 +72,11 @@ class GithubScheduler {
 
       const isTeam = !!link.team;
       const commitFn = isTeam ? client.teamCommit.bind(client) : client.commit.bind(client);
-      const res = await commitFn(appId, zipPath, {});
+      let buildLog = '';
+      const res = await commitFn(appId, zipPath, {
+        onBuildOutput: (text) => { buildLog = text; }
+      });
+      if (!buildLog && res?._buildOutput) buildLog = res._buildOutput;
 
       this._saveLink(appId, {
         ...link,
@@ -89,7 +93,7 @@ class GithubScheduler {
         success: true,
         appId
       });
-      this.onDeployed({ appId, repo: link.repo, sha: info.sha, fileSize: dl.size, fileName: dl.name, success: true, message: res?.message || 'enviado', triggeredBy });
+      this.onDeployed({ appId, repo: link.repo, sha: info.sha, fileSize: dl.size, fileName: dl.name, success: true, message: res?.message || 'enviado', buildLog, triggeredBy });
       return { success: true, sha: info.sha, message: res?.message };
     } catch (e) {
       logger.error('[github] deploy failed for', appId, e?.message, e?.stack);
@@ -99,7 +103,7 @@ class GithubScheduler {
         success: false,
         appId
       });
-      this.onDeployed({ appId, repo: link.repo, success: false, message: e?.message || String(e), triggeredBy });
+      this.onDeployed({ appId, repo: link.repo, success: false, message: e?.message || String(e), buildLog: e?.buildOutput || '', triggeredBy });
       throw e;
     } finally {
       this.running.delete(appId);

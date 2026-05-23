@@ -160,7 +160,8 @@ export default function DeployModal({ app, file, onClose, onDeployed }) {
         fileName: file.name,
         fileSize: file.size,
         success: true,
-        message: res?.message || t('deploy.filesSent')
+        message: res?.message || t('deploy.filesSent'),
+        buildLog: res?._buildOutput || ''
       }).catch(() => {});
       setPhase('waiting-build');
       setTimeout(() => window.api.poller.tickNow(), 1500);
@@ -170,7 +171,8 @@ export default function DeployModal({ app, file, onClose, onDeployed }) {
         fileName: file.name,
         fileSize: file.size,
         success: false,
-        message: e.message
+        message: e.message,
+        buildLog: e?.buildOutput || ''
       }).catch(() => {});
       setErr(e.message);
       setPhase('error');

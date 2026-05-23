@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Play, Square, RotateCw, Download, Terminal, HardDrive, Cpu, MemoryStick, ArrowDownUp, Upload, FileArchive, Users, Tag, NotebookPen, Check, History, CheckCircle2, XCircle, AlertOctagon, RefreshCw as RefreshIcon, CalendarDays } from 'lucide-react';
+import { Play, Square, RotateCw, Download, Terminal, HardDrive, Cpu, MemoryStick, ArrowDownUp, Upload, FileArchive, Users, Tag, NotebookPen, Check, History, CheckCircle2, XCircle, AlertOctagon, RefreshCw as RefreshIcon, CalendarDays, ScrollText } from 'lucide-react';
 import Charts from './Charts.jsx';
 import LogsModal from './LogsModal.jsx';
 import RamModal from './RamModal.jsx';
@@ -8,6 +8,9 @@ import Avatar from './Avatar.jsx';
 import GithubCard from './GithubCard.jsx';
 import EnvEditor from './EnvEditor.jsx';
 import FileExplorer from './FileExplorer.jsx';
+import BuildLogModal from './BuildLogModal.jsx';
+import HealthChip from './HealthChip.jsx';
+import { fmtUptimePct } from '../health.js';
 import { Settings2 } from 'lucide-react';
 import { fmtMB, fmtPct, fmtBytes, fmtUptime, fmtRelativePast, describeExitCode } from '../format.js';
 import { useT, useI18n } from '../i18n.js';
@@ -63,6 +66,8 @@ export default function AppDetail({ app, apps = [], user = null }) {
   const [ramOpen, setRamOpen] = useState(false);
   const [deployFile, setDeployFile] = useState(null);
   const [draggingOver, setDraggingOver] = useState(false);
+  const [buildLogDeploy, setBuildLogDeploy] = useState(null);
+  const [slaWindows, setSlaWindows] = useState({ d1: null, d7: null, d30: null });
   const [toast, setToast] = useState(null);
   const [labelDraft, setLabelDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
@@ -96,6 +101,34 @@ export default function AppDetail({ app, apps = [], user = null }) {
     })();
     return () => { dead = true; };
   }, [app.id, windowMs, app.ts]);
+
+  // SLA com 3 janelas (24h, 7d, 30d). Re-fetch a cada minuto.
+  useEffect(() => {
+    let dead = false;
+    const fetchAll = async () => {
+      const now = Date.now();
+      const windows = {
+        d1: now - 24 * 3600 * 1000,
+        d7: now - 7 * 24 * 3600 * 1000,
+        d30: now - 30 * 24 * 3600 * 1000
+      };
+      try {
+        const [d1, d7, d30] = await Promise.all([
+          window.api.db.slaStats(windows.d1, app.id),
+          window.api.db.slaStats(windows.d7, app.id),
+          window.api.db.slaStats(windows.d30, app.id)
+        ]);
+        if (!dead) setSlaWindows({
+          d1: d1[app.id] || null,
+          d7: d7[app.id] || null,
+          d30: d30[app.id] || null
+        });
+      } catch {}
+    };
+    fetchAll();
+    const tt = setInterval(fetchAll, 60_000);
+    return () => { dead = true; clearInterval(tt); };
+  }, [app.id, app.ts]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -185,6 +218,9 @@ export default function AppDetail({ app, apps = [], user = null }) {
               <h1 className="text-2xl font-semibold truncate">{app.name}</h1>
               {app.id !== app.name && (
                 <span className="chip bg-panel2 text-mute font-mono">{app.id}</span>
+              )}
+              {app._health && app._health.score != null && (
+                <HealthChip health={app._health} variant="normal" />
               )}
               {app.type && <span className="chip bg-accent/15 text-accent">{app.type}</span>}
               {app.team && (
@@ -426,6 +462,48 @@ export default function AppDetail({ app, apps = [], user = null }) {
         </div>
       </details>
 
+      {/* SLA / disponibilidade */}
+      <div className="card p-4">
+        <div className="flex items-baseline justify-between mb-3">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Activity size={14} className="text-mute" />
+            {t('settings.slaTitle')}
+          </h3>
+          <span className="text-[10px] text-mute">{t('settings.slaSubtitle')}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { key: 'd1',  label: t('settings.slaLast24h'),  stats: slaWindows.d1 },
+            { key: 'd7',  label: t('settings.slaLast7d'),   stats: slaWindows.d7 },
+            { key: 'd30', label: t('settings.slaLast30d'),  stats: slaWindows.d30 }
+          ].map(({ key, label, stats }) => {
+            const pct = stats?.uptimePct;
+            const samples = stats?.samples || 0;
+            const insufficient = samples < 10;
+            const tone =
+              pct == null || insufficient ? 'text-mute' :
+              pct >= 99 ? 'text-success' :
+              pct >= 90 ? 'text-accent' :
+              pct >= 70 ? 'text-warn' :
+                          'text-danger';
+            return (
+              <div key={key} className="bg-panel2 border border-border rounded-lg p-3 flex flex-col">
+                <div className="text-[10px] text-mute uppercase tracking-wider">{label}</div>
+                <div className={`text-2xl font-semibold mt-1 font-mono ${tone}`}>
+                  {insufficient ? '—' : fmtUptimePct(pct)}
+                </div>
+                <div className="text-[10px] text-mute mt-1">
+                  {insufficient
+                    ? t('settings.slaInsufficient')
+                    : t('settings.slaSamples', { n: samples.toLocaleString() })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-mute mt-2 italic">{t('settings.slaCaveat')}</p>
+      </div>
+
       {/* Histórico de deploys */}
       {deploys.length > 0 && (
         <details className="card p-4">
@@ -444,9 +522,21 @@ export default function AppDetail({ app, apps = [], user = null }) {
                 {d.file_name && (
                   <span className="text-mute truncate" title={d.file_name}>{d.file_name}</span>
                 )}
-                {d.file_size != null && (
-                  <span className="text-mute shrink-0 ml-auto">{fmtBytes(d.file_size)}</span>
-                )}
+                <div className="ml-auto flex items-center gap-2 shrink-0">
+                  {d.file_size != null && (
+                    <span className="text-mute">{fmtBytes(d.file_size)}</span>
+                  )}
+                  {d.has_log === 1 && (
+                    <button
+                      onClick={() => setBuildLogDeploy(d)}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-accent/15 text-accent hover:bg-accent/25 transition-colors text-[10px] font-medium"
+                      title={t('settings.buildLogView')}
+                    >
+                      <ScrollText size={10} />
+                      log
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -531,6 +621,13 @@ export default function AppDetail({ app, apps = [], user = null }) {
           file={deployFile}
           onClose={() => setDeployFile(null)}
           onDeployed={(msg) => showToast(msg)}
+        />
+      )}
+      {buildLogDeploy && (
+        <BuildLogModal
+          appId={app.id}
+          deploy={buildLogDeploy}
+          onClose={() => setBuildLogDeploy(null)}
         />
       )}
 

@@ -111,6 +111,11 @@ function extractList(res) {
        : Array.isArray(res) ? res : [];
 }
 
+// Watchdog: se um tick não terminar nesse tempo, abortamos e emitimos erro.
+// Cobre o caso da API hangar mesmo com o timeout individual de cada request
+// (vários requests em sequência poderiam compor um tick longo).
+const TICK_TIMEOUT_MS = 60_000;
+
 class Poller {
   constructor(client, db, emit) {
     this.client = client;
@@ -123,6 +128,7 @@ class Poller {
     this.catalog = new Map();
     this.lastSnapshot = [];
     this.lastStartedAt = new Map(); // app_id -> startedAt string
+    this._ticking = false;          // guard anti-overlap
   }
 
   start(intervalMs) {
@@ -232,9 +238,58 @@ class Poller {
     };
   }
 
+  // Wrapper: aplica watchdog de 60s + guard contra overlap. Se um tick
+  // anterior ainda está rodando, pula este. Se passar do limite, emite
+  // poll-error precocemente e marca esse gen como descartado — o tick órfão
+  // continua rodando até falhar nos timeouts internos mas não emite mais nada.
   async tickNow() {
     if (!this.client) { logger.warn('[poller] tickNow without client'); return null; }
-    logger.info('[poller] tick start');
+    if (this._ticking) {
+      logger.warn('[poller] tick skipped — anterior ainda rodando');
+      return null;
+    }
+    this._ticking = true;
+    const gen = (this._tickGen = (this._tickGen || 0) + 1);
+    const start = Date.now();
+    let watchdog;
+
+    try {
+      await Promise.race([
+        this._tickInternal(gen),
+        new Promise((_, reject) => {
+          watchdog = setTimeout(() => {
+            reject(new Error(`Tick travado (>${Math.round(TICK_TIMEOUT_MS / 1000)}s). API Discloud parece pendurada.`));
+          }, TICK_TIMEOUT_MS);
+        })
+      ]);
+    } catch (err) {
+      if (gen === this._tickGen && !err?._handled) {
+        // Caso típico: watchdog disparou. _tickInternal não emitiu nada;
+        // o wrapper é quem reporta o tick travado.
+        logger.error(
+          '[poller] tick aborted:', err?.message,
+          'after', Date.now() - start, 'ms'
+        );
+        this.emit('poll-error', {
+          message: err?.message || String(err),
+          status: err?.status,
+          ts: Date.now()
+        });
+      }
+    } finally {
+      if (watchdog) clearTimeout(watchdog);
+      this._ticking = false;
+    }
+    return null;
+  }
+
+  // Helper pra _tickInternal saber se ainda é o tick atual antes de mutar
+  // estado/emitir. Após watchdog disparar, o gen muda no próximo tickNow e
+  // este retorna false — o órfão silenciosamente abandona.
+  _isCurrent(gen) { return gen === this._tickGen; }
+
+  async _tickInternal(gen) {
+    logger.info('[poller] tick start (gen=', gen, ')');
     this.emit('tick-start', { ts: Date.now() });
     let phase = 'init';
     try {
@@ -277,6 +332,13 @@ class Poller {
       phase = 'normalize';
       const rows = merged.map((raw) => normalize(raw, ts));
 
+      // Se o watchdog já deu o tick como morto, abandona silenciosamente
+      // antes de mexer no DB ou emitir snapshot stale.
+      if (!this._isCurrent(gen)) {
+        logger.warn('[poller] tick gen=', gen, 'descartado (watchdog disparou antes)');
+        return null;
+      }
+
       phase = 'db.insertMany';
       if (rows.length) this.db.insertMany(rows);
 
@@ -298,7 +360,7 @@ class Poller {
       phase = 'emit-snapshot';
       this.emit('snapshot', { ts, rows, apps: merged });
 
-      logger.info('[poller] tick complete');
+      logger.info('[poller] tick complete (gen=', gen, ')');
       return rows;
     } catch (err) {
       logger.error(
@@ -307,8 +369,18 @@ class Poller {
         'message=', err?.message,
         'stack=', err?.stack
       );
-      this.emit('poll-error', { message: err?.message || String(err), status: err?.status, ts: Date.now() });
-      return null;
+      // Só emite se ainda for o tick atual — senão o wrapper já cuidou
+      if (this._isCurrent(gen)) {
+        this.emit('poll-error', {
+          message: err?.message || String(err),
+          status: err?.status,
+          ts: Date.now()
+        });
+      }
+      // Repropaga pro wrapper (que vai ignorar se gen for stale, ou logar/emit
+      // se for o atual). Mas como já emitimos, marca pro wrapper não duplicar.
+      err._handled = true;
+      throw err;
     }
   }
 }

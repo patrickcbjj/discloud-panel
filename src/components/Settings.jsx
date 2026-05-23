@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Save, Trash2, Power, Bell, Archive, FolderOpen, Play, RefreshCw, CheckCircle2, AlertTriangle, FileDown, Sun, Moon, Palette, Github, Languages } from 'lucide-react';
+import { Save, Trash2, Power, Bell, Archive, FolderOpen, Play, RefreshCw, CheckCircle2, AlertTriangle, FileDown, Sun, Moon, Palette, Github, Languages, Info } from 'lucide-react';
 import { useI18n, getDays } from '../i18n.js';
+import UpdateCard from './UpdateCard.jsx';
 
 
 function fmtBytes(n) {
@@ -42,7 +43,7 @@ function Toggle({ checked, onChange, label, hint }) {
   );
 }
 
-export default function Settings({ apps = [] }) {
+export default function Settings({ apps = [], onOpenAbout }) {
   const { t, locale, setLocale } = useI18n();
   const DAYS = getDays(locale);
   const [token, setToken] = useState('');
@@ -231,6 +232,8 @@ export default function Settings({ apps = [] }) {
   return (
     <div className="p-6 max-w-2xl space-y-4">
       <h1 className="text-2xl font-semibold">{t('settings.title')}</h1>
+
+      <UpdateCard />
 
       <div className="card p-5 space-y-4">
         <h2 className="text-xs uppercase text-mute tracking-wider flex items-center gap-2">
@@ -641,6 +644,18 @@ export default function Settings({ apps = [] }) {
           </details>
         )}
       </div>
+
+      {onOpenAbout && (
+        <div className="pt-2 pb-4 flex justify-center">
+          <button
+            onClick={onOpenAbout}
+            className="flex items-center gap-1.5 text-xs text-mute hover:text-accent transition-colors"
+          >
+            <Info size={12} />
+            {t('settings.about')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

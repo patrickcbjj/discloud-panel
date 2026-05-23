@@ -1,0 +1,54 @@
+name: Release
+
+# Dispara SOMENTE quando uma tag começando com "v" é empurrada.
+# Pushes/PRs em main NÃO disparam release.
+# Patrick faz: npm version → git push --follow-tags → este workflow assume o resto.
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Necessário pro GITHUB_TOKEN poder criar/editar releases.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & publish (draft)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # electron-builder lê GH_TOKEN automaticamente e usa o publish config
+      # do package.json (provider github, releaseType: draft) pra criar uma
+      # release em rascunho com os 3 artifacts (.exe + .blockmap + latest.yml)
+      # já anexados. Patrick revisa as notas e clica em "Publish release".
+      - name: Build and publish to GitHub (as draft)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish always
+
+      # Backup: também sobe os artifacts como build artifacts do workflow,
+      # pra acessar mesmo se algo der errado no publish.
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
+          if-no-files-found: warn
+          retention-days: 14

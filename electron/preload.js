@@ -49,7 +49,9 @@ contextBridge.exposeInMainWorld('api', {
     restarts: (id, sinceMs) => invoke('db:restarts', id, sinceMs),
     purgeOlderThan: (ms) => invoke('db:purgeOlderThan', ms),
     insertDeploy: (id, info) => invoke('db:insertDeploy', id, info),
-    deploys: (id, limit) => invoke('db:deploys', id, limit)
+    deploys: (id, limit) => invoke('db:deploys', id, limit),
+    deployBuildLog: (id, ts) => invoke('db:deployBuildLog', id, ts),
+    slaStats: (sinceMs, appId) => invoke('db:slaStats', sinceMs, appId)
   },
   poller: {
     tickNow: () => invoke('poller:tickNow')
@@ -60,7 +62,8 @@ contextBridge.exposeInMainWorld('api', {
     setTheme: (theme) => invoke('window:setTheme', theme)
   },
   app: {
-    quit: () => invoke('app:quit')
+    quit: () => invoke('app:quit'),
+    info: () => invoke('app:info')
   },
   export: {
     run: (opts) => invoke('export:run', opts)
@@ -83,6 +86,22 @@ contextBridge.exposeInMainWorld('api', {
     getFolder: () => invoke('backup:getFolder'),
     openFolder: () => invoke('backup:openFolder'),
     chooseFolder: () => invoke('backup:chooseFolder')
+  },
+  updater: {
+    state: () => invoke('updater:state'),
+    checkNow: () => invoke('updater:checkNow'),
+    download: () => invoke('updater:download'),
+    quitAndInstall: () => invoke('updater:quitAndInstall')
+  },
+  onUpdaterEvent: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on('updater-event', handler);
+    return () => ipcRenderer.removeListener('updater-event', handler);
+  },
+  onOpenAbout: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on('open-about', handler);
+    return () => ipcRenderer.removeListener('open-about', handler);
   },
   openExternal: (url) => invoke('shell:openExternal', url),
   onTickStart: (cb) => {

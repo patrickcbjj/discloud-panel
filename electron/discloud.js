@@ -2,34 +2,54 @@
 // Auth via header "api-token". Base v2.
 const BASE = 'https://api.discloud.app/v2';
 
+// Timeout padrão por request. Discloud já é lenta às vezes (commit, backup),
+// mas pra GETs simples 30s é folga suficiente — se passar disso é hang.
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 class DiscloudClient {
   constructor(token) {
     this.token = token;
   }
 
-  async _req(method, path, body) {
-    const res = await fetch(BASE + path, {
-      method,
-      headers: {
-        'api-token': this.token,
-        'Content-Type': 'application/json',
-        'User-Agent': 'discloud-panel/0.1 (local)'
-      },
-      body: body ? JSON.stringify(body) : undefined
-    });
+  async _req(method, path, body, opts = {}) {
+    const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const ctrl = new AbortController();
+    const tid = timeoutMs > 0 ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
 
-    const text = await res.text();
-    let data = null;
-    try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+    try {
+      const res = await fetch(BASE + path, {
+        method,
+        headers: {
+          'api-token': this.token,
+          'Content-Type': 'application/json',
+          'User-Agent': 'discloud-panel/0.1 (local)'
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: ctrl.signal
+      });
 
-    if (!res.ok) {
-      const msg = data?.message || data?.statusCode || res.statusText;
-      const err = new Error(`Discloud ${res.status}: ${msg}`);
-      err.status = res.status;
-      err.body = data;
+      const text = await res.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+
+      if (!res.ok) {
+        const msg = data?.message || data?.statusCode || res.statusText;
+        const err = new Error(`Discloud ${res.status}: ${msg}`);
+        err.status = res.status;
+        err.body = data;
+        throw err;
+      }
+      return data;
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        const e = new Error(`Discloud timeout (${timeoutMs}ms) em ${method} ${path}`);
+        e.code = 'TIMEOUT';
+        throw e;
+      }
       throw err;
+    } finally {
+      if (tid) clearTimeout(tid);
     }
-    return data;
   }
 
   user()           { return this._req('GET', '/user'); }

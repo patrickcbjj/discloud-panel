@@ -91,7 +91,8 @@ contextBridge.exposeInMainWorld('api', {
     state: () => invoke('updater:state'),
     checkNow: () => invoke('updater:checkNow'),
     download: () => invoke('updater:download'),
-    quitAndInstall: () => invoke('updater:quitAndInstall')
+    quitAndInstall: () => invoke('updater:quitAndInstall'),
+    clearCache: () => invoke('updater:clearCache')
   },
   onUpdaterEvent: (cb) => {
     const handler = (_e, payload) => cb(payload);
@@ -103,7 +104,19 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('open-about', handler);
     return () => ipcRenderer.removeListener('open-about', handler);
   },
+  onOpenSettings: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on('open-settings', handler);
+    return () => ipcRenderer.removeListener('open-settings', handler);
+  },
   openExternal: (url) => invoke('shell:openExternal', url),
+  popupMenu: () => invoke('menu:popup'),
+  errors: {
+    list: () => invoke('errors:list'),
+    clear: () => invoke('errors:clear'),
+    openFolder: () => invoke('errors:openFolder'),
+    report: (payload) => invoke('errors:report', payload)
+  },
   onTickStart: (cb) => {
     const handler = (_e, payload) => cb(payload);
     ipcRenderer.on('tick-start', handler);

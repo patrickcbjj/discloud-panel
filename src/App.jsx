@@ -41,6 +41,55 @@ export default function App() {
     return window.api.onOpenAbout?.(() => setAboutOpen(true));
   }, []);
 
+  useEffect(() => {
+    return window.api.onOpenSettings?.(() => setView('settings'));
+  }, []);
+
+  // Atalhos globais do renderer. Ignora quando o foco está num input/textarea
+  // pra não atrapalhar digitação. Eventos de janela disparam ações em
+  // componentes filhos (AppDetail) sem precisar drillar props.
+  useEffect(() => {
+    const isTyping = (el) => {
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+    };
+    const handler = (e) => {
+      const typing = isTyping(document.activeElement);
+      // "/" foca a busca da sidebar (estilo GitHub/Discord)
+      if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const el = document.getElementById('sidebar-search');
+        if (el) { e.preventDefault(); el.focus(); el.select?.(); }
+        return;
+      }
+      if (!e.ctrlKey && !e.metaKey) return;
+      // Ctrl+, → Settings
+      if (e.key === ',') {
+        e.preventDefault();
+        setView((v) => v === 'settings' ? 'dashboard' : 'settings');
+        return;
+      }
+      // Ctrl+R → restart do app selecionado (sobrescreve reload do Chromium)
+      if ((e.key === 'r' || e.key === 'R') && !e.shiftKey) {
+        e.preventDefault();
+        if (view === 'dashboard' && selected) {
+          window.dispatchEvent(new CustomEvent('shortcut:restart', { detail: { appId: selected } }));
+        }
+        return;
+      }
+      // Ctrl+L → abrir logs do app selecionado
+      if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        if (view === 'dashboard' && selected) {
+          window.dispatchEvent(new CustomEvent('shortcut:logs', { detail: { appId: selected } }));
+        }
+        return;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [view, selected]);
+
   // Carrega SLA 24h pra todos os apps. Re-fetch a cada 2min e sempre que
   // um snapshot novo chegar (asssim health score reage rapidamente após
   // restart/OOM detectados).

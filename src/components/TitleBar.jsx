@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { RefreshCw, Settings as SettingsIcon, Cloud, AlertTriangle, Gem } from 'lucide-react';
+import { RefreshCw, Settings as SettingsIcon, Cloud, AlertTriangle, Gem, Menu as MenuIcon } from 'lucide-react';
 import { fmtTime } from '../format.js';
 import { planStyle, userAvatarURL, userName, userPlan } from '../plans.js';
 import Avatar from './Avatar.jsx';
@@ -48,6 +48,13 @@ export default function TitleBar({ user, lastTickAt, error, polling = false, onR
   return (
     <div className="titlebar-drag h-9 flex items-center justify-between border-b border-border bg-panel pl-3 pr-[150px] text-xs">
       <div className="flex items-center gap-2 text-mute min-w-0">
+        <button
+          className="titlebar-nodrag flex items-center justify-center h-6 w-6 rounded hover:bg-border/60 text-mute hover:text-text shrink-0"
+          onClick={() => window.api.popupMenu?.()}
+          title="Menu"
+        >
+          <MenuIcon size={14} />
+        </button>
         <Cloud size={14} className="text-accent shrink-0" />
         <span className="font-semibold text-text shrink-0">Discloud Panel</span>
         {name && (

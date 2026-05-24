@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, safeStorage, globalShortcut } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { DiscloudClient } = require('./discloud');
@@ -11,6 +11,7 @@ const { DiscloudStatusMonitor } = require('./discloudStatus');
 const github = require('./github');
 const { UpdateManager } = require('./updater');
 const logger = require('./logger');
+const errorTracker = require('./errorTracker');
 
 const isDev = !app.isPackaged;
 
@@ -82,6 +83,38 @@ function installSecretEncryption() {
       }
     }
   }
+}
+
+// Limpa caches do Chromium quando detecta que a versão mudou desde o último
+// start. Resolve o "tela preta após auto-update" — o cache do bundle JS fica
+// apontando pra hashes velhas que não existem mais no asar novo. Roda síncrono
+// antes de qualquer BrowserWindow ser criado.
+//
+// NÃO limpa Local Storage, Session Storage, IndexedDB nem o config.json —
+// só os 3 caches que o Electron reconstrói sozinho na próxima carga.
+function clearStaleCachesIfUpdated() {
+  try {
+    const userData = app.getPath('userData');
+    const lastVersionFile = path.join(userData, '.last-version');
+    const current = app.getVersion();
+    let lastVersion = null;
+    try { lastVersion = fs.readFileSync(lastVersionFile, 'utf8').trim(); } catch {}
+
+    if (lastVersion && lastVersion !== current) {
+      const dirs = ['Cache', 'Code Cache', 'GPUCache', 'DawnGraphiteCache', 'DawnWebGPUCache'];
+      for (const d of dirs) {
+        try { fs.rmSync(path.join(userData, d), { recursive: true, force: true }); }
+        catch {}
+      }
+      try {
+        logger.info(`[cache] versão mudou ${lastVersion} -> ${current}, caches limpos`);
+      } catch {}
+    }
+    try {
+      fs.mkdirSync(userData, { recursive: true });
+      fs.writeFileSync(lastVersionFile, current);
+    } catch {}
+  } catch {}
 }
 
 // instância única (evita 2 processos)
@@ -260,7 +293,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   });
 
@@ -300,12 +333,119 @@ function createWindow() {
   });
 }
 
+function buildAppMenu() {
+  const repoUrl = 'https://github.com/patrickcbjj/discloud-panel';
+  return Menu.buildFromTemplate([
+    {
+      label: 'Arquivo',
+      submenu: [
+        {
+          label: 'Atualizar dados',
+          accelerator: 'F5',
+          click: () => { if (poller) poller.tickNow(); }
+        },
+        {
+          label: 'Configurações',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            showWindow();
+            if (win && !win.isDestroyed()) win.webContents.send('open-settings');
+          }
+        },
+        {
+          label: 'Verificar atualizações…',
+          click: () => { try { updater?.check?.(); } catch {} }
+        },
+        { type: 'separator' },
+        {
+          label: 'Esconder na bandeja',
+          accelerator: 'CmdOrCtrl+W',
+          click: () => { if (win && !win.isDestroyed()) win.hide(); }
+        },
+        {
+          label: 'Sair',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => { isQuitting = true; app.quit(); }
+        }
+      ]
+    },
+    {
+      label: 'Editar',
+      submenu: [
+        { label: 'Desfazer', role: 'undo' },
+        { label: 'Refazer', role: 'redo' },
+        { type: 'separator' },
+        { label: 'Recortar', role: 'cut' },
+        { label: 'Copiar', role: 'copy' },
+        { label: 'Colar', role: 'paste' },
+        { label: 'Selecionar tudo', role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'Visualizar',
+      submenu: [
+        {
+          label: 'Recarregar janela',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: () => { if (win && !win.isDestroyed()) win.webContents.reloadIgnoringCache(); }
+        },
+        {
+          label: 'Ferramentas de desenvolvedor',
+          accelerator: 'F12',
+          click: () => { if (win && !win.isDestroyed()) win.webContents.toggleDevTools(); }
+        },
+        { type: 'separator' },
+        { label: 'Aumentar zoom', role: 'zoomIn' },
+        { label: 'Diminuir zoom', role: 'zoomOut' },
+        { label: 'Zoom padrão', role: 'resetZoom' },
+        { type: 'separator' },
+        { label: 'Tela cheia', role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Janela',
+      submenu: [
+        { label: 'Minimizar', role: 'minimize' },
+        { label: 'Fechar', role: 'close' }
+      ]
+    },
+    {
+      label: 'Ajuda',
+      submenu: [
+        {
+          label: 'Repositório no GitHub',
+          click: () => shell.openExternal(repoUrl)
+        },
+        {
+          label: 'Reportar um problema',
+          click: () => shell.openExternal(`${repoUrl}/issues/new`)
+        },
+        {
+          label: 'Licença MIT',
+          click: () => shell.openExternal(`${repoUrl}/blob/main/LICENSE`)
+        },
+        { type: 'separator' },
+        {
+          label: `Sobre o Discloud Panel (v${app.getVersion()})`,
+          click: () => {
+            showWindow();
+            if (win && !win.isDestroyed()) win.webContents.send('open-about');
+          }
+        }
+      ]
+    }
+  ]);
+}
+
 // segundo launch → traz pro foco
 app.on('second-instance', () => showWindow());
 
 app.whenReady().then(async () => {
   logger.init(app.getPath('userData'));
   logger.info('userData:', app.getPath('userData'));
+  errorTracker.init();
+  errorTracker.attachApp();
+  clearStaleCachesIfUpdated();
   installSecretEncryption();
   logger.info('isDev:', isDev, 'token set:', !!store.get('apiToken'));
 
@@ -385,7 +525,24 @@ app.whenReady().then(async () => {
 
   ensurePoller();
   createTray();
+  Menu.setApplicationMenu(buildAppMenu());
   createWindow();
+  errorTracker.attachWindow(win);
+
+  // Atalho global: traz o painel pra frente de qualquer lugar do Windows
+  try {
+    const ok = globalShortcut.register('CommandOrControl+Shift+D', () => {
+      if (!win || win.isDestroyed()) return;
+      if (win.isVisible() && win.isFocused()) {
+        win.hide();
+      } else {
+        showWindow();
+      }
+    });
+    if (!ok) logger.warn('[shortcut] globalShortcut Ctrl+Shift+D já estava registrado');
+  } catch (e) {
+    logger.warn('[shortcut] registrar global falhou:', e?.message);
+  }
 
   // Ajusta nome do app pra notificações no Windows
   app.setAppUserModelId('dev.patrick.discloud-panel');
@@ -396,6 +553,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', () => { isQuitting = true; });
+app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch {} });
 
 app.on('window-all-closed', (e) => {
   // não sai automaticamente — fica vivo na tray
@@ -430,6 +588,31 @@ ipcMain.handle('config:set', (_e, key, value) => {
   return true;
 });
 ipcMain.handle('config:hasToken', () => Boolean(store.get('apiToken')));
+
+ipcMain.handle('errors:list', () => errorTracker.list());
+ipcMain.handle('errors:clear', () => errorTracker.clear());
+ipcMain.handle('errors:openFolder', () => {
+  const p = errorTracker.getPath();
+  if (p) shell.showItemInFolder(p);
+});
+ipcMain.handle('errors:report', (_e, payload) => {
+  errorTracker.record({
+    type: payload?.type || 'rendererError',
+    source: 'renderer',
+    message: payload?.message,
+    stack: payload?.stack,
+    url: payload?.url,
+    line: payload?.line,
+    col: payload?.col
+  });
+});
+
+ipcMain.handle('menu:popup', (e) => {
+  const menu = Menu.getApplicationMenu();
+  if (!menu) return;
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (w) menu.popup({ window: w });
+});
 ipcMain.handle('config:getLoginItemSettings', () => app.getLoginItemSettings());
 
 ipcMain.handle('discloud:serviceStatus', () => statusMon?.current() ?? { status: 'unknown' });
@@ -603,6 +786,21 @@ ipcMain.handle('updater:download', async () => {
 ipcMain.handle('updater:quitAndInstall', () => {
   isQuitting = true;
   updater?.quitAndInstall();
+});
+ipcMain.handle('updater:clearCache', async () => {
+  const userData = app.getPath('userData');
+  const dirs = ['Cache', 'Code Cache', 'GPUCache', 'DawnGraphiteCache', 'DawnWebGPUCache'];
+  let removed = 0;
+  for (const d of dirs) {
+    try {
+      await fs.promises.rm(path.join(userData, d), { recursive: true, force: true });
+      removed++;
+    } catch {}
+  }
+  // Limpa também o cache da sessão atual (HTTP cache em uso)
+  try { await require('electron').session.defaultSession.clearCache(); } catch {}
+  logger.info('[cache] limpeza manual concluída,', removed, 'diretórios removidos');
+  return { ok: true, removed };
 });
 
 // ---------- GitHub ----------

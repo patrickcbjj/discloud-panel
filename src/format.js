@@ -1,3 +1,21 @@
+// Todo container Discloud que escuta numa porta ganha <id>.discloud.app —
+// inclusive bots Node/Python que rodam servidor HTTP além da função principal.
+// Por isso a URL é mostrada pra qualquer tipo; se o app não escuta na porta,
+// o subdomínio retorna 502 e o usuário descobre clicando.
+export function appSiteUrl(app) {
+  if (!app) return null;
+  const raw = app.raw || app;
+  if (raw.url) return String(raw.url).startsWith('http') ? raw.url : `https://${raw.url}`;
+  const sub = raw.subDomain || raw.subdomain || raw.domain;
+  if (sub) {
+    const host = String(sub).includes('.') ? sub : `${sub}.discloud.app`;
+    return `https://${host}`;
+  }
+  const id = app.id || raw.id;
+  if (!id) return null;
+  return `https://${String(id).toLowerCase()}.discloud.app`;
+}
+
 // Discloud retorna `type` como número (1 = bot, 0 = site) ou às vezes string.
 export function appTypeLabel(t) {
   if (t == null || t === '') return null;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Play, Square, RotateCw, Download, Terminal, HardDrive, Cpu, MemoryStick, ArrowDownUp, Upload, FileArchive, Users, Tag, NotebookPen, Check, History, CheckCircle2, XCircle, AlertOctagon, RefreshCw as RefreshIcon, CalendarDays, ScrollText } from 'lucide-react';
+import { Play, Square, RotateCw, Download, Terminal, HardDrive, Cpu, MemoryStick, ArrowDownUp, Upload, FileArchive, Users, Tag, NotebookPen, Check, History, CheckCircle2, XCircle, AlertOctagon, RefreshCw as RefreshIcon, CalendarDays, ScrollText, ExternalLink, Copy, Activity } from 'lucide-react';
 import Charts from './Charts.jsx';
 import LogsModal from './LogsModal.jsx';
 import RamModal from './RamModal.jsx';
@@ -12,7 +12,7 @@ import BuildLogModal from './BuildLogModal.jsx';
 import HealthChip from './HealthChip.jsx';
 import { fmtUptimePct } from '../health.js';
 import { Settings2 } from 'lucide-react';
-import { fmtMB, fmtPct, fmtBytes, fmtUptime, fmtRelativePast, describeExitCode } from '../format.js';
+import { fmtMB, fmtPct, fmtBytes, fmtUptime, fmtRelativePast, describeExitCode, appTypeLabel, appSiteUrl } from '../format.js';
 import { useT, useI18n } from '../i18n.js';
 
 // Mapeia ação UI -> permissões aceitas pela API Discloud (nomes podem variar)
@@ -149,6 +149,25 @@ export default function AppDetail({ app, apps = [], user = null }) {
     }
   };
 
+  // Atalhos do renderer (Ctrl+L / Ctrl+R) disparam eventos de janela do App.jsx
+  useEffect(() => {
+    const onLogs = (e) => {
+      if (e.detail?.appId && e.detail.appId !== app.id) return;
+      setLogsOpen(true);
+    };
+    const onRestart = (e) => {
+      if (e.detail?.appId && e.detail.appId !== app.id) return;
+      if (!can(app, 'restart') || busy) return;
+      if (window.confirm(`Reiniciar ${app.name || app.id}?`)) doAction('restart');
+    };
+    window.addEventListener('shortcut:logs', onLogs);
+    window.addEventListener('shortcut:restart', onRestart);
+    return () => {
+      window.removeEventListener('shortcut:logs', onLogs);
+      window.removeEventListener('shortcut:restart', onRestart);
+    };
+  }, [app.id, app.name, busy]);
+
   const openZipPicker = async () => {
     const file = await window.api.dialog.openZip();
     if (file) setDeployFile(file);
@@ -216,13 +235,48 @@ export default function AppDetail({ app, apps = [], user = null }) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-semibold truncate">{app.name}</h1>
+              {(() => {
+                const url = appSiteUrl(app);
+                if (!url) return null;
+                const host = url.replace(/^https?:\/\//, '');
+                const copy = (e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  navigator.clipboard.writeText(url).then(() => showToast('URL copiada'));
+                };
+                return (
+                  <span className="flex items-center gap-1 text-sm text-mute group">
+                    <a
+                      href={url}
+                      onClick={(e) => { e.preventDefault(); window.api.openExternal(url); }}
+                      className="font-mono text-accent hover:underline truncate max-w-[260px]"
+                      title={url}
+                    >
+                      {host}
+                    </a>
+                    <button
+                      onClick={(e) => { e.preventDefault(); window.api.openExternal(url); }}
+                      className="text-mute hover:text-accent p-0.5"
+                      title="Abrir no navegador"
+                    >
+                      <ExternalLink size={12} />
+                    </button>
+                    <button
+                      onClick={copy}
+                      className="text-mute hover:text-accent p-0.5"
+                      title="Copiar URL"
+                    >
+                      <Copy size={12} />
+                    </button>
+                  </span>
+                );
+              })()}
               {app.id !== app.name && (
                 <span className="chip bg-panel2 text-mute font-mono">{app.id}</span>
               )}
               {app._health && app._health.score != null && (
                 <HealthChip health={app._health} variant="normal" />
               )}
-              {app.type && <span className="chip bg-accent/15 text-accent">{app.type}</span>}
+              {appTypeLabel(app.type) && <span className="chip bg-accent/15 text-accent">{appTypeLabel(app.type)}</span>}
               {app.team && (
                 <span className="chip bg-accent/15 text-accent flex items-center gap-1" title={app.raw?.ownerID ? `dono: ${app.raw.ownerID}` : 'app de equipe'}>
                   <Users size={11} /> team

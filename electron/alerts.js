@@ -36,6 +36,8 @@ class AlertEngine {
     this.ramWindow = new Map();   // app_id -> array de memory_mb (janela móvel)
     this.cpuWindow = new Map();   // app_id -> array de cpu
     this.prevOom = new Map();     // app_id -> ramKilled boolean anterior
+    this.apiErrorStreak = 0;      // erros consecutivos da API (reset em snapshot ok)
+    this.apiErrorThreshold = 2;   // só notifica a partir do 2º erro seguido
   }
 
   _settings() {
@@ -71,6 +73,9 @@ class AlertEngine {
 
   processSnapshot(rows, appsMeta) {
     const s = this._settings();
+    // Tick bem-sucedido limpa o streak de erros da API (glitches isolados não
+    // disparam notificação porque exigem 2+ falhas consecutivas).
+    this.apiErrorStreak = 0;
     const nameOf = (id) => {
       const m = appsMeta.find((a) => String(a.id ?? a.appId ?? a._id) === id);
       return m?.name || id;
@@ -183,6 +188,8 @@ class AlertEngine {
   processError(err) {
     const s = this._settings();
     if (!s.alertApiError) return;
+    this.apiErrorStreak += 1;
+    if (this.apiErrorStreak < this.apiErrorThreshold) return;
     this._notify({
       title: '❌ Erro na API da Discloud',
       body: err.message || 'Falha ao consultar status dos apps.',

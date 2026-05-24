@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Download, RefreshCw, CheckCircle2, AlertTriangle, RotateCw, Sparkles, ChevronDown } from 'lucide-react';
+import { Download, RefreshCw, CheckCircle2, AlertTriangle, RotateCw, Sparkles, ChevronDown, Trash2 } from 'lucide-react';
 import { useT } from '../i18n.js';
 
 function shortError(msg) {
@@ -31,6 +31,20 @@ export default function UpdateCard() {
   const [state, setState] = useState({ status: 'idle', currentVersion: '—' });
   const [checking, setChecking] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearedMsg, setClearedMsg] = useState(null);
+
+  const handleClearCache = async () => {
+    setClearing(true);
+    setClearedMsg(null);
+    try {
+      await window.api.updater.clearCache();
+      setClearedMsg(t('settings.cacheCleared'));
+      setTimeout(() => setClearedMsg(null), 5000);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   useEffect(() => {
     window.api.updater.state().then(setState);
@@ -184,6 +198,26 @@ export default function UpdateCard() {
       </div>
 
       {renderStatus()}
+
+      <div className="pt-3 border-t border-border space-y-2">
+        <button
+          onClick={handleClearCache}
+          disabled={clearing}
+          className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-panel2 border border-border hover:bg-border text-xs text-mute hover:text-text transition-colors disabled:opacity-50"
+        >
+          <Trash2 size={12} className={clearing ? 'animate-pulse' : ''} />
+          {clearing ? t('settings.cacheClearing') : t('settings.clearCache')}
+        </button>
+        <p className="text-[10px] text-mute leading-relaxed">
+          {t('settings.clearCacheHint')}
+        </p>
+        {clearedMsg && (
+          <div className="text-[11px] text-success flex items-center gap-1.5">
+            <CheckCircle2 size={11} />
+            {clearedMsg}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

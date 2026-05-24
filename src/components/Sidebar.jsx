@@ -223,6 +223,7 @@ export default function Sidebar({ apps, selected, onSelect, overviewActive, onOp
         <div className="relative">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-mute" />
           <input
+            id="sidebar-search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('common.search')}

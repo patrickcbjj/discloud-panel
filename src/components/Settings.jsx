@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Save, Trash2, Power, Bell, Archive, FolderOpen, Play, RefreshCw, CheckCircle2, AlertTriangle, FileDown, Sun, Moon, Palette, Github, Languages, Info } from 'lucide-react';
 import { useI18n, getDays } from '../i18n.js';
 import UpdateCard from './UpdateCard.jsx';
+import ErrorLogCard from './ErrorLogCard.jsx';
 
 
 function fmtBytes(n) {
@@ -644,6 +645,8 @@ export default function Settings({ apps = [], onOpenAbout }) {
           </details>
         )}
       </div>
+
+      <ErrorLogCard />
 
       {onOpenAbout && (
         <div className="pt-2 pb-4 flex justify-center">

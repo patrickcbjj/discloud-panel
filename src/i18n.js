@@ -159,7 +159,11 @@ const DICTS = {
       healthReasonRestarts: '{n} restart(s) nas últimas 24h',
       healthReasonOom: 'OOM ativo (RAM estourada)',
       healthReasonHighRam: 'RAM média alta ({n}%)',
-      healthReasonCpuVariance: 'CPU instável (oscilando)'
+      healthReasonCpuVariance: 'CPU instável (oscilando)',
+      clearCache: 'Limpar cache',
+      clearCacheHint: 'Remove caches do Chromium. Use se o app abrir em tela preta após uma atualização.',
+      cacheClearing: 'Limpando…',
+      cacheCleared: 'Cache limpo. Reinicie o app pra carregar do zero.'
     },
     tokenGate: {
       title: 'Conectar à Discloud', desc: 'Cole seu API token pra começar.',
@@ -455,7 +459,11 @@ const DICTS = {
       healthReasonRestarts: '{n} restart(s) in the last 24h',
       healthReasonOom: 'OOM active (RAM exceeded)',
       healthReasonHighRam: 'High average RAM ({n}%)',
-      healthReasonCpuVariance: 'CPU unstable (fluctuating)'
+      healthReasonCpuVariance: 'CPU unstable (fluctuating)',
+      clearCache: 'Clear cache',
+      clearCacheHint: 'Removes Chromium caches. Use this if the app opens to a black screen after an update.',
+      cacheClearing: 'Clearing…',
+      cacheCleared: 'Cache cleared. Restart the app to reload from scratch.'
     },
     tokenGate: {
       title: 'Connect to Discloud', desc: 'Paste your API token to start.',

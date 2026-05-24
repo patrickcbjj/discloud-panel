@@ -1,6 +1,6 @@
 {
   "name": "discloud-panel",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Painel local para monitorar apps hospedados na Discloud",
   "main": "electron/main.js",
   "author": "Patrick",
